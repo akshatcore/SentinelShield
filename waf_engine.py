@@ -28,7 +28,7 @@ class WAF:
             for attack_type, regex_list in PATTERNS.items():
                 for pattern in regex_list:
                     if pattern.search(content):
-                        total_score += 5  # Arbitrary score per match
+                        total_score += 5
                         detected_types.add(attack_type)
 
         # 4. Decision Making
@@ -37,13 +37,12 @@ class WAF:
             log_event(ip, method, url, headers, body, attack_str, total_score, "BLOCKED")
             return {"action": "BLOCKED", "reason": f"Malicious Payload: {attack_str}"}
         
-        # 5. Log Normal Traffic (Optional, usually for debugging)
+        # 5. Log Normal Traffic (Optional)
         if total_score > 0:
-             # Log suspicious but allowed traffic
              attack_str = ", ".join(detected_types)
              log_event(ip, method, url, headers, body, attack_str, total_score, "ALLOWED")
         
-        # Log purely normal traffic occasionally or if configured
+        # Uncomment to log ALL traffic:
         # log_event(ip, method, url, headers, body, "Normal", 0, "ALLOWED")
 
         return {"action": "ALLOWED"}

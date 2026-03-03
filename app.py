@@ -1,7 +1,8 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans
+from config import Config
 import json
 
 app = Flask(__name__)
@@ -13,7 +14,6 @@ init_db()
 @app.before_request
 def waf_middleware():
     # WHITELIST: Skip WAF inspection for static resources, dashboard pages, and internal APIs
-    # This prevents the dashboard's auto-refresh from triggering the rate limiter.
     if (request.path.startswith('/static') or 
         request.path.startswith('/api') or 
         request.path == '/' or 
@@ -40,8 +40,6 @@ def waf_middleware():
 # --- VULNERABLE ENDPOINT SIMULATION ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # This endpoint simulates a vulnerable login page
-    # The WAF sits in front of it.
     if request.method == 'POST':
         return "Login Failed (Simulation)", 200
     return "Login Page (Protected)", 200
@@ -51,21 +49,57 @@ def search():
     query = request.args.get('q', '')
     return f"Search results for: {query}"
 
-# --- DASHBOARD ROUTES ---
+# --- DASHBOARD PAGE ---
 @app.route('/')
 def index():
     return render_template('dashboard.html')
+
+# --- API ROUTES ---
 
 @app.route('/api/stats')
 def api_stats():
     stats = get_stats()
     return jsonify(stats)
 
+@app.route('/api/logs')
+def api_logs():
+    # Returns full logs for the Logs View
+    logs = get_all_logs()
+    # Convert tuples to list of dicts
+    data = [{"id": r[0], "time": r[1], "ip": r[2], "method": r[3], "url": r[4], "attack": r[7], "score": r[8], "action": r[9]} for r in logs]
+    return jsonify(data)
+
+@app.route('/api/bans')
+def api_bans():
+    # Returns active bans for the Blacklist View
+    bans = get_all_bans()
+    data = [{"ip": r[0], "banned_at": r[1], "expires": r[2], "reason": r[3]} for r in bans]
+    return jsonify(data)
+
 @app.route('/api/unban/<ip>', methods=['POST'])
 def api_unban(ip):
-    # Admin endpoint to unban IPs
     unban_ip(ip)
     return jsonify({"status": "success", "message": f"IP {ip} unbanned"})
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def api_settings():
+    if request.method == 'POST':
+        data = request.json
+        # Dynamically update Config class attributes
+        if 'block_threshold' in data: Config.BLOCK_THRESHOLD = int(data['block_threshold'])
+        if 'rate_limit' in data: Config.MAX_REQUESTS_PER_WINDOW = int(data['rate_limit'])
+        if 'ban_duration' in data: Config.BAN_DURATION = int(data['ban_duration'])
+        return jsonify({"status": "updated", "config": {
+            "block_threshold": Config.BLOCK_THRESHOLD,
+            "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
+            "ban_duration": Config.BAN_DURATION
+        }})
+    
+    return jsonify({
+        "block_threshold": Config.BLOCK_THRESHOLD,
+        "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
+        "ban_duration": Config.BAN_DURATION
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

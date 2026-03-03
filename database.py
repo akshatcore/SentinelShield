@@ -76,6 +76,24 @@ def unban_ip(ip):
     conn.commit()
     conn.close()
 
+# --- DATA FETCHING FOR DASHBOARD ---
+
+def get_all_logs():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 200")
+    logs = c.fetchall()
+    conn.close()
+    return logs
+
+def get_all_bans():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM bans ORDER BY banned_at DESC")
+    bans = c.fetchall()
+    conn.close()
+    return bans
+
 def get_stats():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()

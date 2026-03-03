@@ -15,8 +15,5 @@ class Config:
     # Ban Settings
     BAN_DURATION = 300  # 5 minutes
     
-    # Logging
-    LOG_FILE = "waf_events.json"
-    
     # Secret Key
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'super-secret-sentinel-key'

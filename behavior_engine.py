@@ -3,7 +3,7 @@ import time
 from collections import defaultdict
 from config import Config
 
-# In-memory storage for sliding window (Production should use Redis)
+# In-memory storage for sliding window
 request_history = defaultdict(list)
 
 def check_rate_limit(ip):
@@ -23,12 +23,3 @@ def check_rate_limit(ip):
     if len(request_history[ip]) > Config.MAX_REQUESTS_PER_WINDOW:
         return True
     return False
-
-def analyze_behavior(ip, attack_type):
-    """
-    Adjusts behavior scoring based on repeat offenses.
-    """
-    # Simple logic: If rate limit hits, return high score immediately
-    if attack_type == "Rate Limit Exceeded":
-        return 10
-    return 0
