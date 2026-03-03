@@ -1,9 +1,10 @@
 # app.py
-from flask import Flask, request, jsonify, render_template, abort
+from flask import Flask, request, jsonify, render_template, abort, send_file
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv
 from config import Config
 import json
+import io
 
 app = Flask(__name__)
 
@@ -89,7 +90,7 @@ def api_settings():
         if 'block_threshold' in data: Config.BLOCK_THRESHOLD = int(data['block_threshold'])
         if 'rate_limit' in data: Config.MAX_REQUESTS_PER_WINDOW = int(data['rate_limit'])
         if 'ban_duration' in data: Config.BAN_DURATION = int(data['ban_duration'])
-        return jsonify({"status": "updated", "config": {
+        return jsonify({"status": "updated", "message": "Configuration Saved Successfully", "config": {
             "block_threshold": Config.BLOCK_THRESHOLD,
             "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
             "ban_duration": Config.BAN_DURATION
@@ -100,6 +101,29 @@ def api_settings():
         "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
         "ban_duration": Config.BAN_DURATION
     })
+
+# --- NEW ENDPOINTS: MAINTENANCE ---
+
+@app.route('/api/database/clear', methods=['POST'])
+def api_clear_db():
+    clear_database()
+    return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
+
+@app.route('/api/report/download')
+def api_download_report():
+    csv_data = export_logs_csv()
+    
+    # Create a file-like object in memory
+    mem = io.BytesIO()
+    mem.write(csv_data.encode('utf-8'))
+    mem.seek(0)
+    
+    return send_file(
+        mem,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='sentinel_security_report.csv'
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -1,17 +1,17 @@
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // --- NAVIGATION ---
     const navItems = document.querySelectorAll('.nav-item');
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
+    // --- NAVIGATION ---
     navItems.forEach(item => {
+        if(item.getAttribute('href')) return;
         item.addEventListener('click', () => {
-            navItems.forEach(nav => nav.classList.remove('active'));
+            navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
             
             const target = item.getAttribute('data-target');
-            sections.forEach(sec => sec.classList.add('hidden'));
+            sections.forEach(s => s.classList.add('hidden'));
             
             const targetSection = document.getElementById(`view-${target}`);
             targetSection.classList.remove('hidden');
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 
-    // Traffic Line Chart (Simulated History)
+    // Traffic Line Chart
     const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(ctxTraffic, {
         type: 'line',
@@ -97,14 +97,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('total-count').innerText = data.total;
                 document.getElementById('ban-count').innerText = data.bans;
 
-                // Update Line Chart (Traffic Pulse)
+                // Update Line Chart
                 const currentReqs = data.total - lastTotal;
                 lastTotal = data.total;
                 
-                // Add new point, remove old
                 const timeStr = new Date().toLocaleTimeString();
                 trafficChart.data.labels.push(timeStr);
-                trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0); // show diff as rate
+                trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0);
                 if(trafficChart.data.labels.length > 15) {
                     trafficChart.data.labels.shift();
                     trafficChart.data.datasets[0].data.shift();
@@ -132,10 +131,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                     `;
                 });
-            });
+            })
+            .catch(err => console.log("Waiting for server..."));
     }
 
-    // Helper: Number Animation
     function animateValue(id, start, end, duration) {
         if (start === end) return;
         const range = end - start;
@@ -177,6 +176,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // --- SEARCH FILTER FUNCTIONALITY (Restored) ---
+    window.filterLogs = function() {
+        const query = document.getElementById('log-search-input').value.toLowerCase();
+        const rows = document.querySelectorAll('#logs-body-full tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+
     window.loadBlacklist = function() {
         fetch('/api/bans')
             .then(res => res.json())
@@ -204,43 +213,43 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // --- SETTINGS LOGIC ---
     window.loadSettings = function() {
         fetch('/api/settings')
             .then(res => res.json())
             .then(data => {
-                // Update slider values and text displays
-                updateSlider('setting-threshold', data.block_threshold);
-                updateSlider('setting-ratelimit', data.rate_limit);
-                updateSlider('setting-duration', data.ban_duration);
+                document.getElementById('setting-threshold').value = data.block_threshold;
+                document.getElementById('setting-ratelimit').value = data.rate_limit;
+                document.getElementById('setting-duration').value = data.ban_duration;
+                
+                document.getElementById('val-threshold').innerText = data.block_threshold;
+                document.getElementById('val-ratelimit').innerText = data.rate_limit;
+                document.getElementById('val-duration').innerText = data.ban_duration;
             });
     }
 
-    function updateSlider(id, val) {
+    // Slider Event Listeners (Fixing visual updates)
+    const sliders = {
+        'setting-threshold': 'val-threshold',
+        'setting-ratelimit': 'val-ratelimit',
+        'setting-duration': 'val-duration'
+    };
+
+    Object.keys(sliders).forEach(id => {
         const el = document.getElementById(id);
         if(el) {
-            el.value = val;
-            el.nextElementSibling.innerText = val;
+            el.addEventListener('input', function() {
+                document.getElementById(sliders[id]).innerText = this.value;
+            });
         }
-    }
-
-    // --- ACTIONS ---
-
-    // Sliders Listener
-    document.querySelectorAll('.range-slider').forEach(slider => {
-        slider.addEventListener('input', (e) => {
-            e.target.nextElementSibling.innerText = e.target.value;
-        });
     });
 
     window.saveSettings = function() {
         const data = {
-            block_threshold: document.getElementById('setting-threshold').value,
-            rate_limit: document.getElementById('setting-ratelimit').value,
-            ban_duration: document.getElementById('setting-duration').value
+            block_threshold: parseInt(document.getElementById('setting-threshold').value),
+            rate_limit: parseInt(document.getElementById('setting-ratelimit').value),
+            ban_duration: parseInt(document.getElementById('setting-duration').value)
         };
-        const btn = document.querySelector('.btn-primary');
-        const originalText = btn.innerText;
-        btn.innerText = "Saving...";
         
         fetch('/api/settings', {
             method: 'POST',
@@ -248,16 +257,54 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(data)
         })
         .then(res => res.json())
-        .then(() => {
-            btn.innerText = "Configuration Synced";
-            setTimeout(() => btn.innerText = originalText, 2000);
+        .then(data => {
+            showToast(data.message);
         });
     };
 
-    window.unbanIP = function(ip) {
-        fetch(`/api/unban/${ip}`, { method: 'POST' })
-            .then(() => loadBlacklist());
+    window.clearDatabase = function() {
+        if(!confirm("Are you sure? This will delete all Logs and Bans. (Admin users will remain)")) return;
+        fetch('/api/database/clear', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                showToast(data.message);
+                updateStats();
+            });
     };
+
+    window.unbanIP = function(ip) {
+        fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
+    };
+
+    window.replayLog = function(id) {
+        fetch(`/api/logs/${id}`)
+            .then(res => res.json())
+            .then(log => {
+                const modal = document.getElementById('replay-modal');
+                const body = document.getElementById('modal-body');
+                body.innerHTML = `
+                    <p><strong style="color:var(--text-muted)">Time:</strong> ${log.timestamp}</p>
+                    <p><strong style="color:var(--text-muted)">IP:</strong> ${log.ip_address} (Threat Index: ${log.threat_index})</p>
+                    <hr style="border-color:var(--border-subtle); margin:10px 0">
+                    <p><strong style="color:#3b82f6">${log.method} ${log.url}</strong></p>
+                    <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; margin:10px 0; color:#cbd5e1; word-break:break-all;">${log.headers}</div>
+                    <p><strong style="color:var(--danger)">Payload:</strong></p>
+                    <pre style="color:#ef4444; white-space:pre-wrap;">${log.payload || 'No Body'}</pre>
+                `;
+                modal.classList.remove('hidden');
+            });
+    }
+
+    window.closeModal = function() {
+        document.getElementById('replay-modal').classList.add('hidden');
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
 
     // Init
     setInterval(fetchStats, 2000);

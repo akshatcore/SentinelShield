@@ -1,6 +1,8 @@
 # database.py
 import sqlite3
 import datetime
+import csv
+import io
 from config import Config
 
 def init_db():
@@ -132,3 +134,39 @@ def get_stats():
         "top_ips": top_ips,
         "logs": recent_logs
     }
+
+# --- NEW FEATURES: CLEAR DB & REPORT ---
+
+def clear_database():
+    """Wipes logs and bans."""
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("DELETE FROM logs")
+    c.execute("DELETE FROM bans")
+    conn.commit()
+    conn.close()
+
+def export_logs_csv():
+    """Generates a CSV string of all logs."""
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM logs ORDER BY timestamp DESC")
+    rows = c.fetchall()
+    
+    # Get headers before closing
+    if c.description:
+        headers = [description[0] for description in c.description]
+    else:
+        headers = []
+
+    conn.close()
+    
+    if not rows:
+        return ""
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    
+    return output.getvalue()
