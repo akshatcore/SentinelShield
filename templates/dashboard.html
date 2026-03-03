@@ -2,33 +2,52 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SentinelShield SOC | Elite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelShield SOC | Advanced WAF</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+
     <nav class="glass-panel sidebar">
         <div class="logo">
             <i class="fas fa-shield-virus" style="color: var(--primary);"></i>
-            SENTINEL<span style="color: var(--primary);">ELITE</span>
+            SENTINEL<span style="color: var(--primary);">SHIELD</span>
         </div>
-        <div class="nav-item active" data-target="dashboard"><i class="fas fa-satellite-dish"></i> Live Monitor</div>
-        <div class="nav-item" data-target="logs"><i class="fas fa-file-code"></i> Forensics</div>
-        <div class="nav-item" data-target="blacklist"><i class="fas fa-ban"></i> Detention List</div>
-        <a href="/logout" class="nav-item" style="margin-top:auto; color:var(--danger); border:1px solid rgba(239,68,68,0.2)"><i class="fas fa-sign-out-alt"></i> Terminate Session</a>
+        
+        <div class="nav-item active" data-target="dashboard">
+            <i class="fas fa-satellite-dish"></i> Live Monitor
+        </div>
+        <div class="nav-item" data-target="logs">
+            <i class="fas fa-file-code"></i> Inspection Logs
+        </div>
+        <div class="nav-item" data-target="blacklist">
+            <i class="fas fa-ban"></i> Detention List
+        </div>
+        <div class="nav-item" data-target="settings">
+            <i class="fas fa-sliders-h"></i> System Config
+        </div>
+
+        <div style="margin-top: auto; padding: 10px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.5;">
+            v2.4.0-stable<br>Connected: Localhost
+        </div>
     </nav>
 
     <main class="main-content">
+        
         <header>
             <h1 id="page-title">Live Threat Monitor</h1>
-            <div class="status-badge"><div class="pulse-dot"></div> System Secured</div>
+            <div class="status-badge">
+                <div class="pulse-dot"></div>
+                System Operational
+            </div>
         </header>
 
         <div id="view-dashboard" class="view-section fade-in">
             <div class="stats-grid">
                 <div class="glass-panel stat-card glow-red">
-                    <div class="stat-label">Neutralized Threats</div>
+                    <div class="stat-label">Blocked Threats</div>
                     <div class="stat-value" id="blocked-count">0</div>
                     <i class="fas fa-shield-alt stat-icon" style="color: var(--danger);"></i>
                 </div>
@@ -38,7 +57,7 @@
                     <i class="fas fa-network-wired stat-icon" style="color: var(--primary);"></i>
                 </div>
                 <div class="glass-panel stat-card glow-orange">
-                    <div class="stat-label">Active Bans</div>
+                    <div class="stat-label">Active Detentions</div>
                     <div class="stat-value" id="ban-count">0</div>
                     <i class="fas fa-user-lock stat-icon" style="color: var(--warning);"></i>
                 </div>
@@ -46,52 +65,124 @@
 
             <div class="charts-wrapper">
                 <div class="glass-panel chart-card">
-                    <div class="chart-header"><div class="chart-title">Attack Vector Analysis</div></div>
-                    <div style="flex:1"><canvas id="attackChart"></canvas></div>
+                    <div class="chart-header">
+                        <div class="chart-title">Traffic Velocity (Real-time)</div>
+                        <i class="fas fa-chart-line" style="color: var(--primary);"></i>
+                    </div>
+                    <div style="flex:1; position: relative;">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
                 </div>
                 <div class="glass-panel chart-card">
-                    <div class="chart-header"><div class="chart-title">Top Hostiles</div></div>
-                    <div style="flex:1"><canvas id="ipChart"></canvas></div>
+                    <div class="chart-header">
+                        <div class="chart-title">Threat Classification</div>
+                        <i class="fas fa-chart-bar" style="color: var(--accent);"></i>
+                    </div>
+                    <div style="flex:1; position: relative;">
+                        <canvas id="attackChart"></canvas>
+                    </div>
                 </div>
             </div>
-            
+
             <div class="glass-panel table-container">
-                <h3>Live Alert Stream</h3>
+                <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between;">
+                    <span style="font-weight: 600; color: var(--text-muted);">Recent Intercepts</span>
+                    <span style="font-size: 0.8rem; color: var(--primary);"><i class="fas fa-sync fa-spin"></i> Live Sync</span>
+                </div>
                 <table>
-                    <thead><tr><th>Time</th><th>IP</th><th>Attack</th><th>Severity</th><th>Score</th></tr></thead>
-                    <tbody id="logs-body-live"></tbody>
+                    <thead>
+                        <tr>
+                            <th>TIMESTAMP</th>
+                            <th>SOURCE IP</th>
+                            <th>VECTOR</th>
+                            <th>SEVERITY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body-live">
+                        </tbody>
                 </table>
             </div>
         </div>
-        
+
         <div id="view-logs" class="view-section hidden">
             <div class="glass-panel table-container">
-                <h3>Security Event Log</h3>
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 15px;">
+                    <input type="text" placeholder="Search IP or Payload..." style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); padding: 8px 12px; color: white; border-radius: 6px; flex: 1;">
+                    <button class="btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">Filter</button>
+                </div>
                 <table>
-                    <thead><tr><th>Time</th><th>IP</th><th>Method</th><th>Attack</th><th>Severity</th><th>Action</th><th>Inspect</th></tr></thead>
-                    <tbody id="logs-body-full"></tbody>
+                    <thead>
+                        <tr>
+                            <th>TIME</th>
+                            <th>IP ADDRESS</th>
+                            <th>METHOD</th>
+                            <th>URL / PAYLOAD</th>
+                            <th>ATTACK TYPE</th>
+                            <th>RISK SCORE</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body-full">
+                        </tbody>
                 </table>
             </div>
         </div>
 
         <div id="view-blacklist" class="view-section hidden">
             <div class="glass-panel table-container">
-                <h3>Detained IPs</h3>
-                <table style="width:100%">
-                     <thead><tr><th>IP Address</th><th>Reason</th><th>Action</th></tr></thead>
-                     <tbody id="blacklist-body"></tbody>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>OFFENDER IP</th>
+                            <th>DETENTION START</th>
+                            <th>RELEASE TIME</th>
+                            <th>REASON</th>
+                            <th style="text-align: right;">OVERRIDE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="blacklist-body">
+                        </tbody>
                 </table>
             </div>
         </div>
 
-        <div id="replay-modal" class="modal hidden">
-            <div class="modal-content glass-panel">
-                <span class="close-modal" onclick="closeModal()">&times;</span>
-                <h2 style="color:var(--primary)"><i class="fas fa-microscope"></i> Forensics Replay</h2>
-                <div id="modal-body" style="margin-top:20px; font-family:monospace; font-size:0.9rem;"></div>
+        <div id="view-settings" class="view-section hidden">
+            <div class="glass-panel" style="padding: 40px; max-width: 800px; margin: 0 auto;">
+                <h3 style="margin-bottom: 30px; color: var(--primary);">Security Engine Parameters</h3>
+                
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>Block Threshold (Risk Score)</span>
+                        <span style="color: var(--primary); font-weight: bold;">10</span>
+                    </div>
+                    <input type="range" min="1" max="100" class="range-slider" id="setting-threshold">
+                    <small style="color: var(--text-muted); display: block; margin-top: 8px;">Lower values increase sensitivity but may cause false positives.</small>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>Rate Limit (Req/min)</span>
+                        <span style="color: var(--primary); font-weight: bold;">20</span>
+                    </div>
+                    <input type="range" min="10" max="1000" class="range-slider" id="setting-ratelimit">
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <span>Ban Duration (Seconds)</span>
+                        <span style="color: var(--primary); font-weight: bold;">300</span>
+                    </div>
+                    <input type="range" min="60" max="3600" class="range-slider" id="setting-duration">
+                </div>
+
+                <div style="margin-top: 40px; text-align: right;">
+                    <button class="btn-primary" onclick="saveSettings()">Apply Configuration</button>
+                </div>
             </div>
         </div>
+
     </main>
+
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

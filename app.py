@@ -1,90 +1,105 @@
 # app.py
-from flask import Flask, request, jsonify, render_template, make_response, redirect, url_for
+from flask import Flask, request, jsonify, render_template, abort
 from waf_engine import waf
-from database import init_db, get_dashboard_stats, unban_ip, get_all_bans, get_log_details
-from auth import generate_token, verify_user, login_required
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans
 from config import Config
+import json
 
 app = Flask(__name__)
+
+# Initialize DB on start
 init_db()
 
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    return response
-
-# --- WAF MIDDLEWARE (FIXED) ---
+# --- WAF MIDDLEWARE ---
 @app.before_request
 def waf_middleware():
-    # ALLOW: static files, login page, dashboard API, favicon, and root
-    allowed_prefixes = ('/static', '/api', '/favicon.ico')
-    allowed_routes = ('/', '/login')
-    
-    if request.path.startswith(allowed_prefixes) or request.path in allowed_routes:
+    # WHITELIST: Skip WAF inspection for static resources, dashboard pages, and internal APIs
+    if (request.path.startswith('/static') or 
+        request.path.startswith('/api') or 
+        request.path == '/' or 
+        request.path == '/favicon.ico'):
         return
 
+    # Extract request data
     ip = request.remote_addr
-    decision = waf.inspect_request(ip, request.method, request.url, dict(request.headers), request.get_data(as_text=True))
+    method = request.method
+    url = request.url
+    headers = dict(request.headers)
+    body = request.get_data(as_text=True)
+
+    # Inspect
+    decision = waf.inspect_request(ip, method, url, headers, body)
 
     if decision['action'] == 'BLOCKED':
-        return jsonify({"error": "Request Blocked", "reason": decision['reason'], "ip": ip}), 403
+        return jsonify({
+            "error": "Request Blocked by SentinelShield",
+            "reason": decision['reason'],
+            "ip": ip
+        }), 403
 
-# --- AUTH ROUTES ---
-@app.route('/login')
-def login_page():
-    return render_template('login.html')
+# --- VULNERABLE ENDPOINT SIMULATION ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        return "Login Failed (Simulation)", 200
+    return "Login Page (Protected)", 200
 
-@app.route('/api/login', methods=['POST'])
-def api_login():
-    data = request.json
-    if verify_user(data.get('username'), data.get('password')):
-        token = generate_token(data.get('username'))
-        resp = make_response(jsonify({'token': token, 'status': 'success'}))
-        resp.set_cookie('auth_token', token, httponly=True, secure=False)
-        return resp
-    return jsonify({'error': 'Invalid credentials'}), 401
+@app.route('/search')
+def search():
+    query = request.args.get('q', '')
+    return f"Search results for: {query}"
 
-@app.route('/logout')
-def logout():
-    resp = make_response(redirect(url_for('login_page')))
-    resp.set_cookie('auth_token', '', expires=0)
-    return resp
-
-# --- DASHBOARD ROUTES ---
+# --- DASHBOARD PAGE ---
 @app.route('/')
-@login_required
 def index():
     return render_template('dashboard.html')
 
-@app.route('/api/stats')
-@login_required
-def api_stats():
-    return jsonify(get_dashboard_stats())
+# --- API ROUTES ---
 
-@app.route('/api/logs/<int:log_id>')
-@login_required
-def api_log_detail(log_id):
-    log = get_log_details(log_id)
-    if log: return jsonify(dict(log))
-    return jsonify({'error': 'Log not found'}), 404
+@app.route('/api/stats')
+def api_stats():
+    stats = get_stats()
+    return jsonify(stats)
+
+@app.route('/api/logs')
+def api_logs():
+    # Returns full logs for the Logs View
+    logs = get_all_logs()
+    # Convert tuples to list of dicts
+    data = [{"id": r[0], "time": r[1], "ip": r[2], "method": r[3], "url": r[4], "attack": r[7], "score": r[8], "action": r[9]} for r in logs]
+    return jsonify(data)
 
 @app.route('/api/bans')
-@login_required
 def api_bans():
-    return jsonify(get_all_bans())
+    # Returns active bans for the Blacklist View
+    bans = get_all_bans()
+    data = [{"ip": r[0], "banned_at": r[1], "expires": r[2], "reason": r[3]} for r in bans]
+    return jsonify(data)
 
 @app.route('/api/unban/<ip>', methods=['POST'])
-@login_required
 def api_unban(ip):
     unban_ip(ip)
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "message": f"IP {ip} unbanned"})
 
-# --- TEST ROUTE ---
-@app.route('/test-attack')
-def test_attack():
-    return "Protected Route. Try adding ?q=<script>"
+@app.route('/api/settings', methods=['GET', 'POST'])
+def api_settings():
+    if request.method == 'POST':
+        data = request.json
+        # Dynamically update Config class attributes
+        if 'block_threshold' in data: Config.BLOCK_THRESHOLD = int(data['block_threshold'])
+        if 'rate_limit' in data: Config.MAX_REQUESTS_PER_WINDOW = int(data['rate_limit'])
+        if 'ban_duration' in data: Config.BAN_DURATION = int(data['ban_duration'])
+        return jsonify({"status": "updated", "config": {
+            "block_threshold": Config.BLOCK_THRESHOLD,
+            "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
+            "ban_duration": Config.BAN_DURATION
+        }})
+    
+    return jsonify({
+        "block_threshold": Config.BLOCK_THRESHOLD,
+        "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
+        "ban_duration": Config.BAN_DURATION
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
