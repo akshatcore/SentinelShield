@@ -167,9 +167,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => console.log("Waiting for server...", err));
     }
 
-    // Flag Helper
+    // --- UPDATED FLAG HELPER ---
     function getFlag(code) {
-        if (!code || code === 'Unknown' || code === 'Local') return '🏳️';
+        if (code === 'Local') return ''; // FIXED: Returns a house for Local IPs
+        if (!code || code === 'Unknown' || code === 'UNK') return '';
         return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
     }
 

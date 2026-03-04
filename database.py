@@ -34,7 +34,7 @@ def init_db():
         reason TEXT
     )''')
 
-    # Admin Users Table (NEW)
+    # Admin Users Table
     c.execute('''CREATE TABLE IF NOT EXISTS admin_users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -49,7 +49,7 @@ def init_db():
         print("⚠️ Migrating database: Adding 'country' column to logs...")
         c.execute("ALTER TABLE logs ADD COLUMN country TEXT DEFAULT 'Unknown'")
     
-    # --- SEED DEFAULT ADMIN (NEW) ---
+    # --- SEED DEFAULT ADMIN ---
     c.execute("SELECT COUNT(*) FROM admin_users")
     if c.fetchone()[0] == 0:
         print(f"⚠️ Seeding default admin user: {Config.DEFAULT_ADMIN_USER}")
@@ -61,7 +61,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- ADMIN AUTHENTICATION (NEW) ---
+# --- ADMIN AUTHENTICATION ---
 def verify_admin(username, password):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
@@ -75,12 +75,14 @@ def verify_admin(username, password):
             return {"id": user[0], "username": user[1], "role": user[3]}
     return None
 
+# --- UPDATED: DETECT LOCAL IPs ---
 def get_country_from_ip(ip):
     """
     Looks up the country ISO code for a given IP.
-    Returns 'Local' for 127.0.0.1 or 'Unknown' if not found.
+    Returns 'Local' for private networks or 'Unknown' if not found.
     """
-    if ip == '127.0.0.1' or ip == 'localhost':
+    # Detect private LAN IPs
+    if ip == '127.0.0.1' or ip == 'localhost' or ip.startswith('192.168.') or ip.startswith('10.'):
         return 'Local'
         
     try:
@@ -151,7 +153,6 @@ def get_all_logs():
     conn.close()
     return logs
 
-# --- NEW: Get single log detail for Forensics Modal ---
 def get_log_by_id(log_id):
     conn = sqlite3.connect(Config.DB_NAME)
     conn.row_factory = sqlite3.Row  # Allow access by column name
