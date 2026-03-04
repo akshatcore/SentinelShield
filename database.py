@@ -43,6 +43,13 @@ def init_db():
         telegram_chat_id TEXT,
         telegram_sync_token TEXT
     )''')
+
+    # --- NEW: IP Reputation Cache Table ---
+    c.execute('''CREATE TABLE IF NOT EXISTS ip_reputation (
+        ip_address TEXT PRIMARY KEY,
+        score INTEGER,
+        last_checked TEXT
+    )''')
     
     # --- MIGRATION: Add 'country' column if it doesn't exist ---
     c.execute("PRAGMA table_info(logs)")
@@ -190,6 +197,30 @@ def unban_ip(ip):
     conn.commit()
     conn.close()
 
+# --- NEW: THREAT INTEL REPUTATION CACHING ---
+def get_cached_reputation(ip):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT score, last_checked FROM ip_reputation WHERE ip_address = ?", (ip,))
+    row = c.fetchone()
+    conn.close()
+    
+    if row:
+        score, last_checked_str = row
+        last_checked = datetime.datetime.strptime(last_checked_str, "%Y-%m-%d %H:%M:%S")
+        if datetime.datetime.now() < last_checked + datetime.timedelta(hours=Config.ABUSEIPDB_CACHE_HOURS):
+            return score
+    return None
+
+def cache_reputation(ip, score):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    c.execute("INSERT OR REPLACE INTO ip_reputation (ip_address, score, last_checked) VALUES (?, ?, ?)",
+              (ip, score, now))
+    conn.commit()
+    conn.close()
+
 # --- DATA FETCHING FOR DASHBOARD ---
 
 def get_all_logs():
@@ -272,6 +303,8 @@ def clear_database():
     c = conn.cursor()
     c.execute("DELETE FROM logs")
     c.execute("DELETE FROM bans")
+    # Also clear the reputation cache on a hard reset
+    c.execute("DELETE FROM ip_reputation") 
     conn.commit()
     conn.close()
 

@@ -34,5 +34,9 @@ class Config:
     DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS') or 'sentinel123'
 
     # --- TELEGRAM ALERTS ---
-    # Now it safely pulls the token from your .env file!
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+
+    # --- THREAT INTELLIGENCE (NEW) ---
+    ABUSEIPDB_API_KEY = os.environ.get('ABUSEIPDB_API_KEY')
+    ABUSEIPDB_THRESHOLD = 90  # Block if abuse confidence is 90% or higher
+    ABUSEIPDB_CACHE_HOURS = 24  # Cache results to prevent API rate limiting

@@ -1,8 +1,8 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for
 from waf_engine import waf
-# ADDED the new Telegram database functions to the import list
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status
+# ADDED Adaptive Defense imports
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, get_suggested_rules, approve_suggested_rule, reject_suggested_rule
 from config import Config
 import json
 import io
@@ -19,8 +19,7 @@ app = Flask(__name__)
 # Initialize DB on start
 init_db()
 
-# --- TELEGRAM BACKGROUND POLLER (NEW) ---
-# This silently listens for users clicking the Deep Link and pressing "Start"
+# --- TELEGRAM BACKGROUND POLLER ---
 def telegram_poller():
     if not hasattr(Config, 'TELEGRAM_BOT_TOKEN') or not Config.TELEGRAM_BOT_TOKEN:
         return
@@ -38,13 +37,11 @@ def telegram_poller():
                     text = msg.get('text', '')
                     chat_id = msg.get('chat', {}).get('id')
                     
-                    # If the message is a deep-link start command (e.g., "/start 1a2b3c4d")
                     if text.startswith('/start ') and chat_id:
                         token = text.split(' ')[1].strip()
                         success = link_telegram_account(token, chat_id)
                         
                         if success:
-                            # Send a confirmation back to their phone
                             msg_url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}/sendMessage"
                             requests.post(msg_url, json={
                                 "chat_id": chat_id, 
@@ -54,15 +51,13 @@ def telegram_poller():
         except Exception as e:
             pass
         
-        time.sleep(2) # Prevent spamming the API too fast
+        time.sleep(2)
 
-# Start the poller in the background
 threading.Thread(target=telegram_poller, daemon=True).start()
 
 # --- WAF MIDDLEWARE ---
 @app.before_request
 def waf_middleware():
-    # WHITELIST: Skip WAF inspection for static resources, dashboard pages, and internal APIs
     if (request.path.startswith('/static') or 
         request.path.startswith('/api') or 
         request.path == '/' or 
@@ -70,14 +65,12 @@ def waf_middleware():
         request.path == '/favicon.ico'):
         return
 
-    # Extract request data
     ip = request.remote_addr
     method = request.method
     url = request.url
     headers = dict(request.headers)
     body = request.get_data(as_text=True)
 
-    # Inspect
     decision = waf.inspect_request(ip, method, url, headers, body)
 
     if decision['action'] == 'BLOCKED':
@@ -96,7 +89,6 @@ def token_required(f):
             return jsonify({'message': 'Authentication Token is missing!', 'status': 401}), 401
         try:
             decoded = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
-            # NEW: Attach the logged-in username to the request so we know WHO is generating a link
             request.current_user = decoded['user'] 
         except:
             return jsonify({'message': 'Token is invalid or expired!', 'status': 401}), 401
@@ -163,7 +155,6 @@ def search():
 @app.route('/')
 @admin_page_required
 def index():
-    # Extract the token expiration time to pass to the frontend timer
     token = request.cookies.get('auth_token')
     exp_time = 0
     if token:
@@ -176,7 +167,6 @@ def index():
     return render_template('dashboard.html', exp_time=exp_time)
 
 # --- API ROUTES ---
-
 @app.route('/api/stats')
 @token_required
 def api_stats():
@@ -238,8 +228,6 @@ def api_settings():
         "ban_duration": Config.BAN_DURATION
     })
 
-# --- NEW: TELEGRAM PAIRING ENDPOINTS ---
-
 @app.route('/api/telegram/status')
 @token_required
 def api_telegram_status():
@@ -249,17 +237,45 @@ def api_telegram_status():
 @app.route('/api/telegram/generate', methods=['POST'])
 @token_required
 def api_telegram_generate():
-    # Generate a random 8-character token
     sync_token = uuid.uuid4().hex[:8]
     set_telegram_sync_token(request.current_user, sync_token)
-    
-    # Generate the deep link (Replace with your bot's exact username)
     bot_username = "SentinelShieldAlerts_bot" 
     link = f"https://t.me/{bot_username}?start={sync_token}"
-    
     return jsonify({"status": "success", "link": link})
 
-# --- NEW ENDPOINTS: MAINTENANCE ---
+# --- NEW: ADAPTIVE DEFENSE ENDPOINTS ---
+
+@app.route('/api/rules/suggested')
+@token_required
+def api_get_suggested_rules():
+    rules = get_suggested_rules()
+    data = []
+    for r in rules:
+        data.append({
+            "id": r[0], "pattern": r[1], "attack_type": r[2], 
+            "confidence": r[3], "status": r[4], "created_at": r[5]
+        })
+    return jsonify(data)
+
+@app.route('/api/rules/approve/<int:rule_id>', methods=['POST'])
+@token_required
+def api_approve_rule(rule_id):
+    from rules import load_custom_rules # Import dynamically to avoid circular dependencies
+    success = approve_suggested_rule(rule_id)
+    if success:
+        load_custom_rules() # Immediately reload the WAF patterns in memory
+        return jsonify({"status": "success", "message": "Rule approved and deployed to WAF."})
+    return jsonify({"status": "error", "message": "Failed to approve rule."}), 400
+
+@app.route('/api/rules/reject/<int:rule_id>', methods=['POST'])
+@token_required
+def api_reject_rule(rule_id):
+    success = reject_suggested_rule(rule_id)
+    if success:
+        return jsonify({"status": "success", "message": "Rule rejected and dismissed."})
+    return jsonify({"status": "error", "message": "Failed to reject rule."}), 400
+
+# --- MAINTENANCE ENDPOINTS ---
 
 @app.route('/api/database/clear', methods=['POST'])
 @token_required

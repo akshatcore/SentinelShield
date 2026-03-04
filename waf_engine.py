@@ -1,13 +1,57 @@
 # waf_engine.py
+import requests
 from rules import PATTERNS
-from database import is_ip_banned, log_event, ban_ip
+from database import is_ip_banned, log_event, ban_ip, get_cached_reputation, cache_reputation
 from behavior_engine import check_rate_limit
 from config import Config
 from alerts import send_telegram_alert
 
+def check_ip_reputation(ip):
+    """
+    Checks the IP against AbuseIPDB.
+    Returns the Abuse Confidence Score (0-100).
+    """
+    # 1. Skip local/private IPs
+    if ip == '127.0.0.1' or ip == 'localhost' or ip.startswith('192.168.') or ip.startswith('10.'):
+        return 0
+        
+    # 2. Check our fast local cache first
+    cached_score = get_cached_reputation(ip)
+    if cached_score is not None:
+        return cached_score
+        
+    # 3. If not cached, query AbuseIPDB (if configured)
+    if not hasattr(Config, 'ABUSEIPDB_API_KEY') or not Config.ABUSEIPDB_API_KEY:
+        return 0
+        
+    try:
+        url = 'https://api.abuseipdb.com/api/v2/check'
+        querystring = {
+            'ipAddress': ip,
+            'maxAgeInDays': '90'
+        }
+        headers = {
+            'Accept': 'application/json',
+            'Key': Config.ABUSEIPDB_API_KEY
+        }
+        
+        # 2-second timeout so WAF doesn't hang if the API is down
+        response = requests.get(url, headers=headers, params=querystring, timeout=2) 
+        
+        if response.status_code == 200:
+            data = response.json()
+            score = data['data']['abuseConfidenceScore']
+            cache_reputation(ip, score) # Save to our database cache
+            return score
+    except Exception as e:
+        print(f"⚠️ Threat Intel API Error: {e}")
+        
+    return 0
+
+
 class WAF:
     def inspect_request(self, ip, method, url, headers, body):
-        # 1. Check if IP is banned
+        # 1. Check if IP is banned locally
         if is_ip_banned(ip):
             return {"action": "BLOCKED", "reason": "IP Banned"}
 
@@ -17,6 +61,15 @@ class WAF:
             log_event(ip, method, url, headers, body, "Rate Limit Exceeded", 10, "BLOCKED")
             send_telegram_alert(ip, "Rate Limit Exceeded", url, 10)  # TRIGGER ALERT
             return {"action": "BLOCKED", "reason": "Rate Limit Exceeded"}
+
+        # --- NEW: 2.5 Global Threat Intelligence ---
+        reputation_score = check_ip_reputation(ip)
+        if reputation_score >= getattr(Config, 'ABUSEIPDB_THRESHOLD', 90):
+            reason = f"Known Malicious IP (AbuseIPDB Score: {reputation_score}%)"
+            ban_ip(ip, reason) # Instantly ban them locally
+            log_event(ip, method, url, headers, body, "Global Threat Intel Block", reputation_score, "BLOCKED")
+            send_telegram_alert(ip, f"Threat Intel (Score: {reputation_score}%)", url, reputation_score)
+            return {"action": "BLOCKED", "reason": reason}
 
         # 3. Signature Inspection (Headers, URL, Body)
         payloads = [url, body] + list(headers.values())
