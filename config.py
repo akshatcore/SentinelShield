@@ -1,19 +1,23 @@
 # config.py
 import os
+from dotenv import load_dotenv
+
+# Load the hidden secrets from the .env file
+load_dotenv()
 
 class Config:
     # Database
     DB_NAME = "sentinel.db"
     
     # Security Thresholds
-    BLOCK_THRESHOLD = 10  # Risk score needed to block a request
+    BLOCK_THRESHOLD = 10 
     
     # Rate Limiting
-    RATE_LIMIT_WINDOW = 60  # seconds
+    RATE_LIMIT_WINDOW = 60 
     MAX_REQUESTS_PER_WINDOW = 20
     
     # Ban Settings
-    BAN_DURATION = 300  # 5 minutes
+    BAN_DURATION = 300 
     
     # GeoIP Configuration
     GEOIP_DB_PATH = os.path.join(os.getcwd(), 'GeoLite2-City.mmdb')
@@ -30,5 +34,5 @@ class Config:
     DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS') or 'sentinel123'
 
     # --- TELEGRAM ALERTS ---
-    TELEGRAM_BOT_TOKEN = "8389008203:AAFEF8Ol8e8qChKHqL76xJaRIbh2dAbOGbw"
-    TELEGRAM_CHAT_ID = "1735115405"
+    # Now it safely pulls the token from your .env file!
+    TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')

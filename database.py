@@ -39,7 +39,9 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password_hash TEXT,
-        role TEXT
+        role TEXT,
+        telegram_chat_id TEXT,
+        telegram_sync_token TEXT
     )''')
     
     # --- MIGRATION: Add 'country' column if it doesn't exist ---
@@ -48,6 +50,14 @@ def init_db():
     if 'country' not in columns:
         print("⚠️ Migrating database: Adding 'country' column to logs...")
         c.execute("ALTER TABLE logs ADD COLUMN country TEXT DEFAULT 'Unknown'")
+
+    # --- MIGRATION: Add Telegram columns to admin_users if they don't exist ---
+    c.execute("PRAGMA table_info(admin_users)")
+    admin_columns = [info[1] for info in c.fetchall()]
+    if 'telegram_chat_id' not in admin_columns:
+        print("⚠️ Migrating database: Adding Telegram columns to admin_users...")
+        c.execute("ALTER TABLE admin_users ADD COLUMN telegram_chat_id TEXT")
+        c.execute("ALTER TABLE admin_users ADD COLUMN telegram_sync_token TEXT")
     
     # --- SEED DEFAULT ADMIN ---
     c.execute("SELECT COUNT(*) FROM admin_users")
@@ -74,6 +84,43 @@ def verify_admin(username, password):
         if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
             return {"id": user[0], "username": user[1], "role": user[3]}
     return None
+
+# --- NEW: TELEGRAM PAIRING LOGIC ---
+def set_telegram_sync_token(username, token):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("UPDATE admin_users SET telegram_sync_token = ? WHERE username = ?", (token, username))
+    conn.commit()
+    conn.close()
+
+def link_telegram_account(token, chat_id):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    # Find the user with this token, save their Chat ID, and clear the token
+    c.execute("UPDATE admin_users SET telegram_chat_id = ?, telegram_sync_token = NULL WHERE telegram_sync_token = ?", (str(chat_id), token))
+    success = conn.total_changes > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def get_telegram_status(username):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT telegram_chat_id, telegram_sync_token FROM admin_users WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+    if not row: return {"status": "unlinked"}
+    if row[0]: return {"status": "linked"}
+    if row[1]: return {"status": "pending", "token": row[1]}
+    return {"status": "unlinked"}
+
+def get_all_telegram_chat_ids():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT telegram_chat_id FROM admin_users WHERE telegram_chat_id IS NOT NULL")
+    ids = [row[0] for row in c.fetchall()]
+    conn.close()
+    return ids
 
 # --- UPDATED: DETECT LOCAL IPs ---
 def get_country_from_ip(ip):

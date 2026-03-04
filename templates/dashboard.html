@@ -188,6 +188,33 @@
                     <input type="range" min="60" max="3600" class="range-slider" id="setting-duration" oninput="document.getElementById('val-duration').innerText=this.value">
                 </div>
 
+                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--primary); border-top: 1px solid var(--border-subtle); padding-top: 30px;">
+                    <i class="fab fa-telegram"></i> External Integrations
+                </h3>
+                
+                <div class="setting-item" style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 5px;">Telegram Threat Alerts</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Receive real-time push notifications when threats are blocked.</div>
+                            <div id="telegram-status-badge" style="margin-top: 10px; font-size: 0.85rem;">
+                                <span class="badge badge-low"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn-primary" id="btn-telegram-connect" onclick="generateTelegramLink()" style="background: #0088cc; border-color: #0088cc;">
+                                <i class="fab fa-telegram-plane"></i> Connect Account
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="telegram-pairing-container" class="hidden" style="margin-top: 20px; background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: bold; color: var(--primary); margin-bottom: 10px;">Step 1: Open this secure link on your device</div>
+                        <a id="telegram-deep-link" href="#" target="_blank" style="color: #60a5fa; font-family: monospace; font-size: 1.1rem;">Generating...</a>
+                        <div style="font-weight: bold; color: var(--primary); margin-top: 15px; margin-bottom: 5px;">Step 2: Press the "Start" button in the bot chat.</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);"><i class="fas fa-circle-notch fa-spin"></i> Waiting for handshake... This window will update automatically.</div>
+                    </div>
+                </div>
                 <div style="margin-top: 40px; display:flex; justify-content:space-between; align-items:center;">
                     <button class="btn-danger" onclick="clearDatabase()">
                         <i class="fas fa-trash"></i> Clear Database

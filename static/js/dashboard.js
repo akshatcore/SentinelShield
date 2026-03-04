@@ -3,10 +3,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
-    // --- SESSION TIMER LOGIC (NEW) ---
+    // --- SESSION TIMER LOGIC ---
     const timerElement = document.getElementById('session-timer');
     if (timerElement) {
-        // Multiplied by 1000 to convert UNIX timestamp to JS milliseconds
         const expTime = parseInt(timerElement.getAttribute('data-exp')) * 1000;
         
         const countdown = setInterval(() => {
@@ -16,16 +15,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (distance <= 0) {
                 clearInterval(countdown);
                 timerElement.innerText = "EXPIRED";
-                // Auto-logout user and redirect
                 fetch('/api/auth/logout', { method: 'POST' })
                     .then(() => window.location.href = '/admin-login');
             } else {
-                // Calculate hours, minutes, seconds
                 const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
                 
-                // Format with leading zeros
                 timerElement.innerText = 
                     (hours < 10 ? "0" + hours : hours) + "h " +
                     (minutes < 10 ? "0" + minutes : minutes) + "m " +
@@ -66,7 +62,6 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 
-    // Traffic Line Chart
     const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(ctxTraffic, {
         type: 'line',
@@ -92,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Attacks Bar Chart
     const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     const attackChart = new Chart(ctxAttacks, {
         type: 'bar',
@@ -114,7 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Top Countries Chart
     const ctxCountry = document.getElementById('countryChart').getContext('2d');
     const countryChart = new Chart(ctxCountry, {
         type: 'bar',
@@ -129,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }]
         },
         options: {
-            indexAxis: 'y', // Horizontal Bar Chart
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
@@ -145,21 +138,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fetch('/api/stats')
             .then(res => {
-                // If token expired naturally and API responds 401, redirect to login
-                if (res.status === 401) {
-                    window.location.href = '/admin-login';
-                }
+                if (res.status === 401) { window.location.href = '/admin-login'; }
                 return res.json();
             })
             .then(data => {
                 if(!data || !data.blocked) return;
 
-                // Counters
                 animateValue('blocked-count', parseInt(document.getElementById('blocked-count').innerText), data.blocked, 1000);
                 document.getElementById('total-count').innerText = data.total;
                 document.getElementById('ban-count').innerText = data.bans;
 
-                // Update Line Chart
                 const currentReqs = data.total - lastTotal;
                 lastTotal = data.total;
                 const timeStr = new Date().toLocaleTimeString();
@@ -172,19 +160,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 trafficChart.update();
 
-                // Update Attack Chart
                 attackChart.data.labels = Object.keys(data.attacks);
                 attackChart.data.datasets[0].data = Object.values(data.attacks);
                 attackChart.update();
 
-                // Update Country Chart
                 if(data.top_countries) {
                     countryChart.data.labels = Object.keys(data.top_countries).map(code => getFlag(code) + " " + code);
                     countryChart.data.datasets[0].data = Object.values(data.top_countries);
                     countryChart.update();
                 }
 
-                // Update Live Feed Table
                 const tbody = document.getElementById('logs-body-live');
                 tbody.innerHTML = '';
                 data.logs.slice(0, 5).forEach(log => {
@@ -206,7 +191,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(err => console.log("Waiting for server...", err));
     }
 
-    // --- UPDATED FLAG HELPER ---
     function getFlag(code) {
         if (code === 'Local') return '🏠'; 
         if (!code || code === 'Unknown' || code === 'UNK') return '🏳️';
@@ -228,7 +212,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- PAGE LOADING FUNCTIONS ---
-    
     window.loadFullLogs = function() {
         fetch('/api/logs')
             .then(res => res.json())
@@ -255,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- FILTER LOGS ---
     window.filterLogs = function() {
         const query = document.getElementById('log-search-input').value.toLowerCase();
         const rows = document.querySelectorAll('#logs-body-full tr');
@@ -296,6 +278,49 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
     }
 
+    // --- NEW: TELEGRAM UI LOGIC ---
+    window.checkTelegramStatus = function() {
+        fetch('/api/telegram/status')
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('telegram-status-badge');
+                const btn = document.getElementById('btn-telegram-connect');
+                const container = document.getElementById('telegram-pairing-container');
+
+                if (data.status === 'linked') {
+                    badge.innerHTML = '<span class="badge" style="background:var(--success); color:black; font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
+                    btn.style.display = 'none';
+                    container.classList.add('hidden');
+                } else if (data.status === 'pending') {
+                    badge.innerHTML = '<span class="badge" style="background:var(--warning); color:black; font-weight:bold;"><i class="fas fa-clock"></i> Pending Verification...</span>';
+                    btn.style.display = 'none';
+                    container.classList.remove('hidden');
+                    // Check again in 3 seconds to auto-update
+                    setTimeout(checkTelegramStatus, 3000);
+                } else {
+                    badge.innerHTML = '<span class="badge badge-low"><i class="fas fa-times-circle"></i> Not Connected</span>';
+                    btn.style.display = 'block';
+                    container.classList.add('hidden');
+                }
+            });
+    };
+
+    window.generateTelegramLink = function() {
+        const btn = document.getElementById('btn-telegram-connect');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        btn.disabled = true;
+
+        fetch('/api/telegram/generate', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    document.getElementById('telegram-deep-link').href = data.link;
+                    document.getElementById('telegram-deep-link').innerText = data.link;
+                    checkTelegramStatus(); 
+                }
+            });
+    };
+
     window.loadSettings = function() {
         fetch('/api/settings')
             .then(res => res.json())
@@ -308,9 +333,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('val-ratelimit').innerText = data.rate_limit;
                 document.getElementById('val-duration').innerText = data.ban_duration;
             });
+        
+        // Check pairing status whenever they open the Settings tab
+        checkTelegramStatus();
     }
 
-    // Slider Event Listeners
     const sliders = {
         'setting-threshold': 'val-threshold',
         'setting-ratelimit': 'val-ratelimit',
@@ -354,7 +381,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
 
-    // --- UPGRADED FORENSICS LOGIC ---
     window.replayLog = function(id) {
         fetch(`/api/logs/${id}`)
             .then(res => res.json())
@@ -362,7 +388,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const modal = document.getElementById('replay-modal');
                 const body = document.getElementById('modal-body');
                 
-                // Parse Headers for display
                 let headersHtml = '';
                 try {
                     const cleanHeaders = log.headers.replace(/'/g, '"');
@@ -410,7 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- FORENSICS HELPERS ---
     window.generateCurl = function(log) {
         let cmd = `curl -X ${log.method} "${log.url}"`;
         cmd += ` -H "User-Agent: SentinelReplay"`;

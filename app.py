@@ -1,18 +1,63 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin
+# ADDED the new Telegram database functions to the import list
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status
 from config import Config
 import json
 import io
 import jwt
 import datetime
 from functools import wraps
+import threading
+import requests
+import time
+import uuid
 
 app = Flask(__name__)
 
 # Initialize DB on start
 init_db()
+
+# --- TELEGRAM BACKGROUND POLLER (NEW) ---
+# This silently listens for users clicking the Deep Link and pressing "Start"
+def telegram_poller():
+    if not hasattr(Config, 'TELEGRAM_BOT_TOKEN') or not Config.TELEGRAM_BOT_TOKEN:
+        return
+    
+    last_update_id = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}/getUpdates?offset={last_update_id}&timeout=30"
+            res = requests.get(url, timeout=35).json()
+            
+            if res.get('ok'):
+                for item in res['result']:
+                    last_update_id = item['update_id'] + 1
+                    msg = item.get('message', {})
+                    text = msg.get('text', '')
+                    chat_id = msg.get('chat', {}).get('id')
+                    
+                    # If the message is a deep-link start command (e.g., "/start 1a2b3c4d")
+                    if text.startswith('/start ') and chat_id:
+                        token = text.split(' ')[1].strip()
+                        success = link_telegram_account(token, chat_id)
+                        
+                        if success:
+                            # Send a confirmation back to their phone
+                            msg_url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}/sendMessage"
+                            requests.post(msg_url, json={
+                                "chat_id": chat_id, 
+                                "text": "✅ *SentinelShield SOC* \n\nYour account has been successfully verified and linked! You will now receive critical threat alerts here.",
+                                "parse_mode": "Markdown"
+                            })
+        except Exception as e:
+            pass
+        
+        time.sleep(2) # Prevent spamming the API too fast
+
+# Start the poller in the background
+threading.Thread(target=telegram_poller, daemon=True).start()
 
 # --- WAF MIDDLEWARE ---
 @app.before_request
@@ -50,7 +95,9 @@ def token_required(f):
         if not token:
             return jsonify({'message': 'Authentication Token is missing!', 'status': 401}), 401
         try:
-            jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
+            decoded = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
+            # NEW: Attach the logged-in username to the request so we know WHO is generating a link
+            request.current_user = decoded['user'] 
         except:
             return jsonify({'message': 'Token is invalid or expired!', 'status': 401}), 401
         return f(*args, **kwargs)
@@ -190,6 +237,27 @@ def api_settings():
         "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
         "ban_duration": Config.BAN_DURATION
     })
+
+# --- NEW: TELEGRAM PAIRING ENDPOINTS ---
+
+@app.route('/api/telegram/status')
+@token_required
+def api_telegram_status():
+    status = get_telegram_status(request.current_user)
+    return jsonify(status)
+
+@app.route('/api/telegram/generate', methods=['POST'])
+@token_required
+def api_telegram_generate():
+    # Generate a random 8-character token
+    sync_token = uuid.uuid4().hex[:8]
+    set_telegram_sync_token(request.current_user, sync_token)
+    
+    # Generate the deep link (Replace with your bot's exact username)
+    bot_username = "SentinelShieldAlerts_bot" 
+    link = f"https://t.me/{bot_username}?start={sync_token}"
+    
+    return jsonify({"status": "success", "link": link})
 
 # --- NEW ENDPOINTS: MAINTENANCE ---
 
