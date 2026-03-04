@@ -4,6 +4,7 @@ import datetime
 import csv
 import io
 import geoip2.database
+import bcrypt
 from config import Config
 
 def init_db():
@@ -32,6 +33,14 @@ def init_db():
         expires_at TEXT,
         reason TEXT
     )''')
+
+    # Admin Users Table (NEW)
+    c.execute('''CREATE TABLE IF NOT EXISTS admin_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password_hash TEXT,
+        role TEXT
+    )''')
     
     # --- MIGRATION: Add 'country' column if it doesn't exist ---
     c.execute("PRAGMA table_info(logs)")
@@ -40,8 +49,31 @@ def init_db():
         print("⚠️ Migrating database: Adding 'country' column to logs...")
         c.execute("ALTER TABLE logs ADD COLUMN country TEXT DEFAULT 'Unknown'")
     
+    # --- SEED DEFAULT ADMIN (NEW) ---
+    c.execute("SELECT COUNT(*) FROM admin_users")
+    if c.fetchone()[0] == 0:
+        print(f"⚠️ Seeding default admin user: {Config.DEFAULT_ADMIN_USER}")
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(Config.DEFAULT_ADMIN_PASS.encode('utf-8'), salt)
+        c.execute("INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)",
+                  (Config.DEFAULT_ADMIN_USER, hashed.decode('utf-8'), 'admin'))
+
     conn.commit()
     conn.close()
+
+# --- ADMIN AUTHENTICATION (NEW) ---
+def verify_admin(username, password):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT id, username, password_hash, role FROM admin_users WHERE username = ?", (username,))
+    user = c.fetchone()
+    conn.close()
+    
+    if user:
+        stored_hash = user[2].encode('utf-8')
+        if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+            return {"id": user[0], "username": user[1], "role": user[3]}
+    return None
 
 def get_country_from_ip(ip):
     """

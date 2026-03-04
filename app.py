@@ -1,11 +1,13 @@
 # app.py
-from flask import Flask, request, jsonify, render_template, abort, send_file
+from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for
 from waf_engine import waf
-# Added get_log_by_id to imports
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin
 from config import Config
 import json
 import io
+import jwt
+import datetime
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -19,6 +21,7 @@ def waf_middleware():
     if (request.path.startswith('/static') or 
         request.path.startswith('/api') or 
         request.path == '/' or 
+        request.path.startswith('/admin-login') or
         request.path == '/favicon.ico'):
         return
 
@@ -39,6 +42,64 @@ def waf_middleware():
             "ip": ip
         }), 403
 
+# --- AUTH DECORATORS (NEW) ---
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.cookies.get('auth_token')
+        if not token:
+            return jsonify({'message': 'Authentication Token is missing!', 'status': 401}), 401
+        try:
+            jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
+        except:
+            return jsonify({'message': 'Token is invalid or expired!', 'status': 401}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_page_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.cookies.get('auth_token')
+        if not token:
+            return redirect(url_for('admin_login_page'))
+        try:
+            jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
+        except:
+            return redirect(url_for('admin_login_page'))
+        return f(*args, **kwargs)
+    return decorated
+
+# --- AUTH ENDPOINTS (NEW) ---
+@app.route('/admin-login', methods=['GET'])
+def admin_login_page():
+    return render_template('admin_login.html')
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_auth_login():
+    data = request.json
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify({'message': 'Missing credentials'}), 400
+    
+    user = verify_admin(data['username'], data['password'])
+    if not user:
+        return jsonify({'message': 'Invalid credentials'}), 401
+        
+    token = jwt.encode({
+        'user': user['username'],
+        'role': user['role'],
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=Config.JWT_EXPIRATION_HOURS)
+    }, Config.JWT_SECRET, algorithm="HS256")
+    
+    resp = make_response(jsonify({'status': 'success', 'message': 'Logged in successfully'}))
+    resp.set_cookie('auth_token', token, httponly=True, samesite='Strict')
+    return resp
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_auth_logout():
+    resp = make_response(jsonify({'status': 'success'}))
+    resp.set_cookie('auth_token', '', expires=0)
+    return resp
+
 # --- VULNERABLE ENDPOINT SIMULATION ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -53,17 +114,20 @@ def search():
 
 # --- DASHBOARD PAGE ---
 @app.route('/')
+@admin_page_required
 def index():
     return render_template('dashboard.html')
 
 # --- API ROUTES ---
 
 @app.route('/api/stats')
+@token_required
 def api_stats():
     stats = get_stats()
     return jsonify(stats)
 
 @app.route('/api/logs')
+@token_required
 def api_logs():
     # Returns full logs for the Logs View
     logs = get_all_logs()
@@ -82,6 +146,7 @@ def api_logs():
 
 # --- NEW: Single Log Detail for Forensics Modal ---
 @app.route('/api/logs/<int:log_id>')
+@token_required
 def api_log_detail(log_id):
     log = get_log_by_id(log_id)
     if log:
@@ -89,6 +154,7 @@ def api_log_detail(log_id):
     return jsonify({'error': 'Log not found'}), 404
 
 @app.route('/api/bans')
+@token_required
 def api_bans():
     # Returns active bans for the Blacklist View
     bans = get_all_bans()
@@ -96,11 +162,13 @@ def api_bans():
     return jsonify(data)
 
 @app.route('/api/unban/<ip>', methods=['POST'])
+@token_required
 def api_unban(ip):
     unban_ip(ip)
     return jsonify({"status": "success", "message": f"IP {ip} unbanned"})
 
 @app.route('/api/settings', methods=['GET', 'POST'])
+@token_required
 def api_settings():
     if request.method == 'POST':
         data = request.json
@@ -123,11 +191,13 @@ def api_settings():
 # --- NEW ENDPOINTS: MAINTENANCE ---
 
 @app.route('/api/database/clear', methods=['POST'])
+@token_required
 def api_clear_db():
     clear_database()
     return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
 
 @app.route('/api/report/download')
+@token_required
 def api_download_report():
     csv_data = export_logs_csv()
     
