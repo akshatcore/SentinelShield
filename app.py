@@ -42,7 +42,7 @@ def waf_middleware():
             "ip": ip
         }), 403
 
-# --- AUTH DECORATORS (NEW) ---
+# --- AUTH DECORATORS ---
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -69,7 +69,7 @@ def admin_page_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# --- AUTH ENDPOINTS (NEW) ---
+# --- AUTH ENDPOINTS ---
 @app.route('/admin-login', methods=['GET'])
 def admin_login_page():
     return render_template('admin_login.html')
@@ -116,7 +116,17 @@ def search():
 @app.route('/')
 @admin_page_required
 def index():
-    return render_template('dashboard.html')
+    # Extract the token expiration time to pass to the frontend timer
+    token = request.cookies.get('auth_token')
+    exp_time = 0
+    if token:
+        try:
+            decoded = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
+            exp_time = decoded.get('exp', 0)
+        except Exception:
+            pass
+            
+    return render_template('dashboard.html', exp_time=exp_time)
 
 # --- API ROUTES ---
 
@@ -129,13 +139,9 @@ def api_stats():
 @app.route('/api/logs')
 @token_required
 def api_logs():
-    # Returns full logs for the Logs View
     logs = get_all_logs()
-    # Convert tuples to list of dicts. 
-    # Tuple index 10 is 'country' added in the database update.
     data = []
     for r in logs:
-        # Safety check for tuple length in case DB schema varies slightly
         country = r[10] if len(r) > 10 else "Unknown"
         data.append({
             "id": r[0], "time": r[1], "ip": r[2], "method": r[3], 
@@ -144,7 +150,6 @@ def api_logs():
         })
     return jsonify(data)
 
-# --- NEW: Single Log Detail for Forensics Modal ---
 @app.route('/api/logs/<int:log_id>')
 @token_required
 def api_log_detail(log_id):
@@ -156,7 +161,6 @@ def api_log_detail(log_id):
 @app.route('/api/bans')
 @token_required
 def api_bans():
-    # Returns active bans for the Blacklist View
     bans = get_all_bans()
     data = [{"ip": r[0], "banned_at": r[1], "expires": r[2], "reason": r[3]} for r in bans]
     return jsonify(data)
@@ -172,7 +176,6 @@ def api_unban(ip):
 def api_settings():
     if request.method == 'POST':
         data = request.json
-        # Dynamically update Config class attributes
         if 'block_threshold' in data: Config.BLOCK_THRESHOLD = int(data['block_threshold'])
         if 'rate_limit' in data: Config.MAX_REQUESTS_PER_WINDOW = int(data['rate_limit'])
         if 'ban_duration' in data: Config.BAN_DURATION = int(data['ban_duration'])
@@ -200,12 +203,9 @@ def api_clear_db():
 @token_required
 def api_download_report():
     csv_data = export_logs_csv()
-    
-    # Create a file-like object in memory
     mem = io.BytesIO()
     mem.write(csv_data.encode('utf-8'))
     mem.seek(0)
-    
     return send_file(
         mem,
         mimetype='text/csv',

@@ -3,6 +3,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
+    // --- SESSION TIMER LOGIC (NEW) ---
+    const timerElement = document.getElementById('session-timer');
+    if (timerElement) {
+        // Multiplied by 1000 to convert UNIX timestamp to JS milliseconds
+        const expTime = parseInt(timerElement.getAttribute('data-exp')) * 1000;
+        
+        const countdown = setInterval(() => {
+            const now = new Date().getTime();
+            const distance = expTime - now;
+
+            if (distance <= 0) {
+                clearInterval(countdown);
+                timerElement.innerText = "EXPIRED";
+                // Auto-logout user and redirect
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(() => window.location.href = '/admin-login');
+            } else {
+                // Calculate hours, minutes, seconds
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                // Format with leading zeros
+                timerElement.innerText = 
+                    (hours < 10 ? "0" + hours : hours) + "h " +
+                    (minutes < 10 ? "0" + minutes : minutes) + "m " +
+                    (seconds < 10 ? "0" + seconds : seconds) + "s";
+            }
+        }, 1000);
+    }
+
     // --- NAVIGATION ---
     navItems.forEach(item => {
         if(item.getAttribute('href')) return;
@@ -113,8 +144,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('view-dashboard').classList.contains('hidden')) return;
 
         fetch('/api/stats')
-            .then(res => res.json())
+            .then(res => {
+                // If token expired naturally and API responds 401, redirect to login
+                if (res.status === 401) {
+                    window.location.href = '/admin-login';
+                }
+                return res.json();
+            })
             .then(data => {
+                if(!data || !data.blocked) return;
+
                 // Counters
                 animateValue('blocked-count', parseInt(document.getElementById('blocked-count').innerText), data.blocked, 1000);
                 document.getElementById('total-count').innerText = data.total;
@@ -169,8 +208,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- UPDATED FLAG HELPER ---
     function getFlag(code) {
-        if (code === 'Local') return ''; // FIXED: Returns a house for Local IPs
-        if (!code || code === 'Unknown' || code === 'UNK') return '';
+        if (code === 'Local') return '🏠'; 
+        if (!code || code === 'Unknown' || code === 'UNK') return '🏳️';
         return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
     }
 
@@ -315,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
 
-    // --- UPGRADED FORENSICS LOGIC (REPLACED OLD replayLog) ---
+    // --- UPGRADED FORENSICS LOGIC ---
     window.replayLog = function(id) {
         fetch(`/api/logs/${id}`)
             .then(res => res.json())
@@ -326,7 +365,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Parse Headers for display
                 let headersHtml = '';
                 try {
-                    // Try to parse header string (which looks like Python dict) to JSON
                     const cleanHeaders = log.headers.replace(/'/g, '"');
                     const headersObj = JSON.parse(cleanHeaders);
                     for (const [key, value] of Object.entries(headersObj)) {
@@ -334,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch(e) { headersHtml = log.headers; }
 
-                // Construct cURL for copy
                 const curlCmd = generateCurl(log);
 
                 body.innerHTML = `
@@ -373,7 +410,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- FORENSICS HELPERS (NEW) ---
+    // --- FORENSICS HELPERS ---
     window.generateCurl = function(log) {
         let cmd = `curl -X ${log.method} "${log.url}"`;
         cmd += ` -H "User-Agent: SentinelReplay"`;

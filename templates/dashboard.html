@@ -38,9 +38,14 @@
         
         <header>
             <h1 id="page-title">Live Threat Monitor</h1>
-            <div class="status-badge">
-                <div class="pulse-dot"></div>
-                System Operational
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div class="status-badge" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d;">
+                    <i class="fas fa-clock"></i> Session: <span id="session-timer" data-exp="{{ exp_time }}">Calc...</span>
+                </div>
+                <div class="status-badge">
+                    <div class="pulse-dot"></div>
+                    System Operational
+                </div>
             </div>
         </header>
 
