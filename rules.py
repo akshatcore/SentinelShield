@@ -27,6 +27,7 @@ PATTERNS = {
         re.compile(r"/etc/passwd", re.IGNORECASE)
     ],
     "Suspicious User-Agent": [
-        re.compile(r"(sqlmap|nikto|nmap|curl|python-requests)", re.IGNORECASE)
+        # Upgraded to detect modern & professional security scanners
+        re.compile(r"(sqlmap|nikto|nmap|curl|python-requests|burpsuite|owasp[\s_-]?zap|zaproxy|masscan|dirbuster|gobuster|wpscan|nuclei|hydra)", re.IGNORECASE)
     ]
 }

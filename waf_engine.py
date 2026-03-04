@@ -28,7 +28,8 @@ class WAF:
             for attack_type, regex_list in PATTERNS.items():
                 for pattern in regex_list:
                     if pattern.search(content):
-                        total_score += 5
+                        # FIX: Increased from 5 to 10 to ensure immediate blocking against default threshold
+                        total_score += 10
                         detected_types.add(attack_type)
 
         # 4. Decision Making
@@ -43,7 +44,7 @@ class WAF:
              log_event(ip, method, url, headers, body, attack_str, total_score, "ALLOWED")
         
         # Uncomment to log ALL traffic:
-        # log_event(ip, method, url, headers, body, "Normal", 0, "ALLOWED")
+        log_event(ip, method, url, headers, body, "Normal", 0, "ALLOWED")
 
         return {"action": "ALLOWED"}
 
