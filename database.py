@@ -3,6 +3,7 @@ import sqlite3
 import datetime
 import csv
 import io
+import geoip2.database
 from config import Config
 
 def init_db():
@@ -20,7 +21,8 @@ def init_db():
         payload TEXT,
         attack_type TEXT,
         risk_score INTEGER,
-        action TEXT
+        action TEXT,
+        country TEXT
     )''')
     
     # IP Bans Table
@@ -31,15 +33,44 @@ def init_db():
         reason TEXT
     )''')
     
+    # --- MIGRATION: Add 'country' column if it doesn't exist ---
+    c.execute("PRAGMA table_info(logs)")
+    columns = [info[1] for info in c.fetchall()]
+    if 'country' not in columns:
+        print("⚠️ Migrating database: Adding 'country' column to logs...")
+        c.execute("ALTER TABLE logs ADD COLUMN country TEXT DEFAULT 'Unknown'")
+    
     conn.commit()
     conn.close()
+
+def get_country_from_ip(ip):
+    """
+    Looks up the country ISO code for a given IP.
+    Returns 'Local' for 127.0.0.1 or 'Unknown' if not found.
+    """
+    if ip == '127.0.0.1' or ip == 'localhost':
+        return 'Local'
+        
+    try:
+        with geoip2.database.Reader(Config.GEOIP_DB_PATH) as reader:
+            response = reader.city(ip)
+            return response.country.iso_code or 'Unknown'
+    except Exception:
+        return 'Unknown'
 
 def log_event(ip, method, url, headers, payload, attack_type, score, action):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO logs (timestamp, ip_address, method, url, headers, payload, attack_type, risk_score, action) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              (timestamp, ip, method, url, str(headers), str(payload), attack_type, score, action))
+    
+    # Resolve Country
+    country = get_country_from_ip(ip)
+    
+    c.execute("""INSERT INTO logs 
+        (timestamp, ip_address, method, url, headers, payload, attack_type, risk_score, action, country) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (timestamp, ip, method, url, str(headers), str(payload), attack_type, score, action, country))
+    
     conn.commit()
     conn.close()
 
@@ -120,6 +151,10 @@ def get_stats():
     c.execute("SELECT ip_address, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY ip_address ORDER BY count DESC LIMIT 5")
     top_ips = dict(c.fetchall())
 
+    # Top Countries (NEW)
+    c.execute("SELECT country, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY country ORDER BY count DESC LIMIT 5")
+    top_countries = dict(c.fetchall())
+
     # Recent Logs
     c.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 10")
     recent_logs = c.fetchall()
@@ -132,6 +167,7 @@ def get_stats():
         "bans": active_bans,
         "attacks": attack_dist,
         "top_ips": top_ips,
+        "top_countries": top_countries,
         "logs": recent_logs
     }
 

@@ -83,6 +83,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Top Countries Chart (NEW)
+    const ctxCountry = document.getElementById('countryChart').getContext('2d');
+    const countryChart = new Chart(ctxCountry, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Attacks',
+                data: [],
+                backgroundColor: '#10b981',
+                borderRadius: 4,
+                barThickness: 15
+            }]
+        },
+        options: {
+            indexAxis: 'y', // Horizontal Bar Chart
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { grid: { display: false } } }
+        }
+    });
+
     // --- REAL-TIME DATA ---
     let lastTotal = 0;
 
@@ -100,8 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update Line Chart
                 const currentReqs = data.total - lastTotal;
                 lastTotal = data.total;
-                
                 const timeStr = new Date().toLocaleTimeString();
+                
                 trafficChart.data.labels.push(timeStr);
                 trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0);
                 if(trafficChart.data.labels.length > 15) {
@@ -110,10 +133,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 trafficChart.update();
 
-                // Update Bar Chart
+                // Update Attack Chart
                 attackChart.data.labels = Object.keys(data.attacks);
                 attackChart.data.datasets[0].data = Object.values(data.attacks);
                 attackChart.update();
+
+                // Update Country Chart (NEW)
+                if(data.top_countries) {
+                    countryChart.data.labels = Object.keys(data.top_countries).map(code => getFlag(code) + " " + code);
+                    countryChart.data.datasets[0].data = Object.values(data.top_countries);
+                    countryChart.update();
+                }
 
                 // Update Live Feed Table
                 const tbody = document.getElementById('logs-body-live');
@@ -121,18 +151,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.logs.slice(0, 5).forEach(log => {
                     const riskClass = log[8] > 20 ? 'badge-crit' : (log[8] > 10 ? 'badge-high' : 'badge-low');
                     const riskLabel = log[8] > 20 ? 'CRITICAL' : (log[8] > 10 ? 'HIGH' : 'LOW');
+                    const flag = getFlag(log[10] || 'Unknown'); // log[10] is country code from DB
                     
                     tbody.innerHTML += `
                         <tr>
                             <td><span style="color:var(--primary)">${log[1].split(' ')[1]}</span></td>
                             <td>${log[2]}</td>
+                            <td>${flag} ${log[10] || 'UNK'}</td>
                             <td>${log[7]}</td>
                             <td><span class="badge ${riskClass}">${riskLabel}</span></td>
                         </tr>
                     `;
                 });
             })
-            .catch(err => console.log("Waiting for server..."));
+            .catch(err => console.log("Waiting for server...", err));
+    }
+
+    // Flag Helper
+    function getFlag(code) {
+        if (!code || code === 'Unknown' || code === 'Local') return '🏳️';
+        return code.toUpperCase().replace(/./g, char => String.fromCodePoint(char.charCodeAt(0) + 127397));
     }
 
     function animateValue(id, start, end, duration) {
@@ -176,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- SEARCH FILTER FUNCTIONALITY (Restored) ---
+    // --- FILTER LOGS (Restored) ---
     window.filterLogs = function() {
         const query = document.getElementById('log-search-input').value.toLowerCase();
         const rows = document.querySelectorAll('#logs-body-full tr');
@@ -213,7 +251,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // --- SETTINGS LOGIC ---
+    window.unbanIP = function(ip) {
+        fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
+    }
+
     window.loadSettings = function() {
         fetch('/api/settings')
             .then(res => res.json())
@@ -228,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Slider Event Listeners (Fixing visual updates)
+    // Slider Event Listeners
     const sliders = {
         'setting-threshold': 'val-threshold',
         'setting-ratelimit': 'val-ratelimit',
@@ -263,17 +304,13 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     window.clearDatabase = function() {
-        if(!confirm("Are you sure? This will delete all Logs and Bans. (Admin users will remain)")) return;
+        if(!confirm("Are you sure? This will delete all Logs and Bans.")) return;
         fetch('/api/database/clear', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 showToast(data.message);
                 updateStats();
             });
-    };
-
-    window.unbanIP = function(ip) {
-        fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
     };
 
     window.replayLog = function(id) {
@@ -284,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const body = document.getElementById('modal-body');
                 body.innerHTML = `
                     <p><strong style="color:var(--text-muted)">Time:</strong> ${log.timestamp}</p>
-                    <p><strong style="color:var(--text-muted)">IP:</strong> ${log.ip_address} (Threat Index: ${log.threat_index})</p>
+                    <p><strong style="color:var(--text-muted)">IP:</strong> ${log.ip_address} <span style="margin-left:10px">${getFlag(log.country)} ${log.country}</span></p>
                     <hr style="border-color:var(--border-subtle); margin:10px 0">
                     <p><strong style="color:#3b82f6">${log.method} ${log.url}</strong></p>
                     <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; margin:10px 0; color:#cbd5e1; word-break:break-all;">${log.headers}</div>
@@ -306,7 +343,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => toast.classList.add('hidden'), 3000);
     }
 
-    // Init
     setInterval(fetchStats, 2000);
     fetchStats();
 });
