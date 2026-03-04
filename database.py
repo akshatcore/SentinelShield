@@ -44,21 +44,30 @@ def init_db():
         telegram_sync_token TEXT
     )''')
 
-    # --- NEW: IP Reputation Cache Table ---
+    # IP Reputation Cache Table
     c.execute('''CREATE TABLE IF NOT EXISTS ip_reputation (
         ip_address TEXT PRIMARY KEY,
         score INTEGER,
         last_checked TEXT
     )''')
+
+    # --- NEW: Adaptive Defense Rules Table ---
+    c.execute('''CREATE TABLE IF NOT EXISTS adaptive_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern TEXT UNIQUE,
+        attack_type TEXT,
+        confidence INTEGER,
+        status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+        created_at TEXT
+    )''')
     
-    # --- MIGRATION: Add 'country' column if it doesn't exist ---
+    # Migrations
     c.execute("PRAGMA table_info(logs)")
     columns = [info[1] for info in c.fetchall()]
     if 'country' not in columns:
         print("⚠️ Migrating database: Adding 'country' column to logs...")
         c.execute("ALTER TABLE logs ADD COLUMN country TEXT DEFAULT 'Unknown'")
 
-    # --- MIGRATION: Add Telegram columns to admin_users if they don't exist ---
     c.execute("PRAGMA table_info(admin_users)")
     admin_columns = [info[1] for info in c.fetchall()]
     if 'telegram_chat_id' not in admin_columns:
@@ -66,7 +75,7 @@ def init_db():
         c.execute("ALTER TABLE admin_users ADD COLUMN telegram_chat_id TEXT")
         c.execute("ALTER TABLE admin_users ADD COLUMN telegram_sync_token TEXT")
     
-    # --- SEED DEFAULT ADMIN ---
+    # Seed Default Admin
     c.execute("SELECT COUNT(*) FROM admin_users")
     if c.fetchone()[0] == 0:
         print(f"⚠️ Seeding default admin user: {Config.DEFAULT_ADMIN_USER}")
@@ -92,7 +101,7 @@ def verify_admin(username, password):
             return {"id": user[0], "username": user[1], "role": user[3]}
     return None
 
-# --- NEW: TELEGRAM PAIRING LOGIC ---
+# --- TELEGRAM PAIRING LOGIC ---
 def set_telegram_sync_token(username, token):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
@@ -103,7 +112,6 @@ def set_telegram_sync_token(username, token):
 def link_telegram_account(token, chat_id):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
-    # Find the user with this token, save their Chat ID, and clear the token
     c.execute("UPDATE admin_users SET telegram_chat_id = ?, telegram_sync_token = NULL WHERE telegram_sync_token = ?", (str(chat_id), token))
     success = conn.total_changes > 0
     conn.commit()
@@ -129,16 +137,10 @@ def get_all_telegram_chat_ids():
     conn.close()
     return ids
 
-# --- UPDATED: DETECT LOCAL IPs ---
+# --- DETECT LOCAL IPs ---
 def get_country_from_ip(ip):
-    """
-    Looks up the country ISO code for a given IP.
-    Returns 'Local' for private networks or 'Unknown' if not found.
-    """
-    # Detect private LAN IPs
     if ip == '127.0.0.1' or ip == 'localhost' or ip.startswith('192.168.') or ip.startswith('10.'):
         return 'Local'
-        
     try:
         with geoip2.database.Reader(Config.GEOIP_DB_PATH) as reader:
             response = reader.city(ip)
@@ -150,15 +152,12 @@ def log_event(ip, method, url, headers, payload, attack_type, score, action):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Resolve Country
     country = get_country_from_ip(ip)
     
     c.execute("""INSERT INTO logs 
         (timestamp, ip_address, method, url, headers, payload, attack_type, risk_score, action, country) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (timestamp, ip, method, url, str(headers), str(payload), attack_type, score, action, country))
-    
     conn.commit()
     conn.close()
 
@@ -167,8 +166,6 @@ def ban_ip(ip, reason):
     c = conn.cursor()
     now = datetime.datetime.now()
     expires = now + datetime.timedelta(seconds=Config.BAN_DURATION)
-    
-    # Upsert ban
     c.execute("INSERT OR REPLACE INTO bans (ip_address, banned_at, expires_at, reason) VALUES (?, ?, ?, ?)",
               (ip, now.strftime("%Y-%m-%d %H:%M:%S"), expires.strftime("%Y-%m-%d %H:%M:%S"), reason))
     conn.commit()
@@ -180,13 +177,11 @@ def is_ip_banned(ip):
     c.execute("SELECT expires_at FROM bans WHERE ip_address = ?", (ip,))
     result = c.fetchone()
     conn.close()
-    
     if result:
         expires_at = datetime.datetime.strptime(result[0], "%Y-%m-%d %H:%M:%S")
         if datetime.datetime.now() < expires_at:
             return True
         else:
-            # Clean up expired ban
             unban_ip(ip)
     return False
 
@@ -197,14 +192,13 @@ def unban_ip(ip):
     conn.commit()
     conn.close()
 
-# --- NEW: THREAT INTEL REPUTATION CACHING ---
+# --- THREAT INTEL REPUTATION CACHING ---
 def get_cached_reputation(ip):
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     c.execute("SELECT score, last_checked FROM ip_reputation WHERE ip_address = ?", (ip,))
     row = c.fetchone()
     conn.close()
-    
     if row:
         score, last_checked_str = row
         last_checked = datetime.datetime.strptime(last_checked_str, "%Y-%m-%d %H:%M:%S")
@@ -221,8 +215,55 @@ def cache_reputation(ip, score):
     conn.commit()
     conn.close()
 
-# --- DATA FETCHING FOR DASHBOARD ---
+# --- NEW: ADAPTIVE DEFENSE LOGIC ---
+def suggest_rule(pattern, attack_type, confidence=85):
+    """Called by the WAF engine when it spots a highly repetitive attack pattern."""
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        c.execute("INSERT INTO adaptive_rules (pattern, attack_type, confidence, created_at) VALUES (?, ?, ?, ?)",
+                  (pattern, attack_type, confidence, now))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        pass # Pattern already suggested or active
+    finally:
+        conn.close()
 
+def get_suggested_rules():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT id, pattern, attack_type, confidence, status, created_at FROM adaptive_rules WHERE status = 'pending' ORDER BY confidence DESC")
+    rules = c.fetchall()
+    conn.close()
+    return rules
+
+def get_active_custom_rules():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT pattern, attack_type FROM adaptive_rules WHERE status = 'approved'")
+    rules = c.fetchall()
+    conn.close()
+    return rules
+
+def approve_suggested_rule(rule_id):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("UPDATE adaptive_rules SET status = 'approved' WHERE id = ?", (rule_id,))
+    success = conn.total_changes > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def reject_suggested_rule(rule_id):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("UPDATE adaptive_rules SET status = 'rejected' WHERE id = ?", (rule_id,))
+    success = conn.total_changes > 0
+    conn.commit()
+    conn.close()
+
+# --- DATA FETCHING FOR DASHBOARD ---
 def get_all_logs():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
@@ -233,14 +274,12 @@ def get_all_logs():
 
 def get_log_by_id(log_id):
     conn = sqlite3.connect(Config.DB_NAME)
-    conn.row_factory = sqlite3.Row  # Allow access by column name
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("SELECT * FROM logs WHERE id = ?", (log_id,))
     row = c.fetchone()
     conn.close()
-    
-    if row:
-        return dict(row)
+    if row: return dict(row)
     return None
 
 def get_all_bans():
@@ -255,31 +294,24 @@ def get_stats():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     
-    # Total Requests
     c.execute("SELECT COUNT(*) FROM logs")
     total_requests = c.fetchone()[0]
     
-    # Blocked Requests
     c.execute("SELECT COUNT(*) FROM logs WHERE action='BLOCKED'")
     blocked_requests = c.fetchone()[0]
     
-    # Active Bans
     c.execute("SELECT COUNT(*) FROM bans")
     active_bans = c.fetchone()[0]
     
-    # Attack Distribution
     c.execute("SELECT attack_type, COUNT(*) FROM logs WHERE attack_type != 'Normal' GROUP BY attack_type")
     attack_dist = dict(c.fetchall())
     
-    # Top IPs
     c.execute("SELECT ip_address, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY ip_address ORDER BY count DESC LIMIT 5")
     top_ips = dict(c.fetchall())
 
-    # Top Countries
     c.execute("SELECT country, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY country ORDER BY count DESC LIMIT 5")
     top_countries = dict(c.fetchall())
 
-    # Recent Logs
     c.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 10")
     recent_logs = c.fetchall()
     
@@ -295,40 +327,27 @@ def get_stats():
         "logs": recent_logs
     }
 
-# --- NEW FEATURES: CLEAR DB & REPORT ---
-
+# --- MAINTENANCE ---
 def clear_database():
-    """Wipes logs and bans."""
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     c.execute("DELETE FROM logs")
     c.execute("DELETE FROM bans")
-    # Also clear the reputation cache on a hard reset
     c.execute("DELETE FROM ip_reputation") 
     conn.commit()
     conn.close()
 
 def export_logs_csv():
-    """Generates a CSV string of all logs."""
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     c.execute("SELECT * FROM logs ORDER BY timestamp DESC")
     rows = c.fetchall()
-    
-    # Get headers before closing
-    if c.description:
-        headers = [description[0] for description in c.description]
-    else:
-        headers = []
-
+    headers = [description[0] for description in c.description] if c.description else []
     conn.close()
     
-    if not rows:
-        return ""
-
+    if not rows: return ""
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(headers)
     writer.writerows(rows)
-    
     return output.getvalue()
