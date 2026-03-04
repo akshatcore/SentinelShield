@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Top Countries Chart (NEW)
+    // Top Countries Chart
     const ctxCountry = document.getElementById('countryChart').getContext('2d');
     const countryChart = new Chart(ctxCountry, {
         type: 'bar',
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 attackChart.data.datasets[0].data = Object.values(data.attacks);
                 attackChart.update();
 
-                // Update Country Chart (NEW)
+                // Update Country Chart
                 if(data.top_countries) {
                     countryChart.data.labels = Object.keys(data.top_countries).map(code => getFlag(code) + " " + code);
                     countryChart.data.datasets[0].data = Object.values(data.top_countries);
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.logs.slice(0, 5).forEach(log => {
                     const riskClass = log[8] > 20 ? 'badge-crit' : (log[8] > 10 ? 'badge-high' : 'badge-low');
                     const riskLabel = log[8] > 20 ? 'CRITICAL' : (log[8] > 10 ? 'HIGH' : 'LOW');
-                    const flag = getFlag(log[10] || 'Unknown'); // log[10] is country code from DB
+                    const flag = getFlag(log[10] || 'Unknown'); 
                     
                     tbody.innerHTML += `
                         <tr>
@@ -209,12 +209,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td>${log.attack}</td>
                             <td><span class="badge ${badgeClass}">Score: ${log.score}</span></td>
                             <td>${log.action}</td>
+                            <td><button class="btn-primary" onclick="replayLog(${log.id})" style="font-size:0.7rem; padding: 4px 10px;">Analyze</button></td>
                         </tr>`;
                 });
             });
     }
 
-    // --- FILTER LOGS (Restored) ---
+    // --- FILTER LOGS ---
     window.filterLogs = function() {
         const query = document.getElementById('log-search-input').value.toLowerCase();
         const rows = document.querySelectorAll('#logs-body-full tr');
@@ -313,22 +314,90 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
 
+    // --- UPGRADED FORENSICS LOGIC (REPLACED OLD replayLog) ---
     window.replayLog = function(id) {
         fetch(`/api/logs/${id}`)
             .then(res => res.json())
             .then(log => {
                 const modal = document.getElementById('replay-modal');
                 const body = document.getElementById('modal-body');
+                
+                // Parse Headers for display
+                let headersHtml = '';
+                try {
+                    // Try to parse header string (which looks like Python dict) to JSON
+                    const cleanHeaders = log.headers.replace(/'/g, '"');
+                    const headersObj = JSON.parse(cleanHeaders);
+                    for (const [key, value] of Object.entries(headersObj)) {
+                        headersHtml += `<div><span style="color:var(--primary)">${key}:</span> ${value}</div>`;
+                    }
+                } catch(e) { headersHtml = log.headers; }
+
+                // Construct cURL for copy
+                const curlCmd = generateCurl(log);
+
                 body.innerHTML = `
-                    <p><strong style="color:var(--text-muted)">Time:</strong> ${log.timestamp}</p>
-                    <p><strong style="color:var(--text-muted)">IP:</strong> ${log.ip_address} <span style="margin-left:10px">${getFlag(log.country)} ${log.country}</span></p>
-                    <hr style="border-color:var(--border-subtle); margin:10px 0">
-                    <p><strong style="color:#3b82f6">${log.method} ${log.url}</strong></p>
-                    <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; margin:10px 0; color:#cbd5e1; word-break:break-all;">${log.headers}</div>
-                    <p><strong style="color:var(--danger)">Payload:</strong></p>
-                    <pre style="color:#ef4444; white-space:pre-wrap;">${log.payload || 'No Body'}</pre>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--text-muted)">SOURCE</div>
+                            <div style="font-size:1.1rem; font-weight:bold">${log.ip_address} ${getFlag(log.country)}</div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.8rem; color:var(--text-muted)">THREAT VECTOR</div>
+                            <div style="font-size:1.1rem; color:var(--danger)">${log.attack_type} (Score: ${log.risk_score})</div>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:1px solid var(--border-subtle); margin-bottom:15px;">
+                        <div style="font-weight:bold; color:#3b82f6; margin-bottom:10px;">HTTP REQUEST</div>
+                        <div style="font-family:monospace; margin-bottom:10px;">${log.method} ${log.url}</div>
+                        <div style="font-family:monospace; font-size:0.85rem; color:#cbd5e1; max-height:100px; overflow-y:auto;">${headersHtml}</div>
+                    </div>
+
+                    <div style="background:rgba(239,68,68,0.1); padding:15px; border-radius:8px; border:1px solid var(--danger); margin-bottom:20px;">
+                        <div style="font-weight:bold; color:var(--danger); margin-bottom:10px;">DETECTED PAYLOAD</div>
+                        <pre style="color:#fca5a5; white-space:pre-wrap; margin:0; font-size:0.9rem;">${log.payload || 'No Body Content'}</pre>
+                    </div>
+
+                    <div style="display:flex; gap:10px; justify-content:flex-end;">
+                        <button class="btn-primary" onclick="copyToClipboard('${curlCmd.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-copy"></i> Copy cURL
+                        </button>
+                        <button class="btn-danger" onclick="replayAttack('${log.url}', '${log.method}', '${log.payload ? log.payload.replace(/'/g, "\\'") : ''}')">
+                            <i class="fas fa-redo"></i> Replay Attack
+                        </button>
+                    </div>
                 `;
                 modal.classList.remove('hidden');
+            });
+    }
+
+    // --- FORENSICS HELPERS (NEW) ---
+    window.generateCurl = function(log) {
+        let cmd = `curl -X ${log.method} "${log.url}"`;
+        cmd += ` -H "User-Agent: SentinelReplay"`;
+        if(log.payload && log.payload !== 'None') cmd += ` -d '${log.payload}'`;
+        return cmd;
+    }
+
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => showToast("cURL copied to clipboard!"));
+    }
+
+    window.replayAttack = function(url, method, payload) {
+        if(!confirm("WARNING: Replaying this attack will target the server immediately. Your IP might get banned if the WAF catches it again. Proceed?")) return;
+        
+        const options = { method: method };
+        if(method !== 'GET' && method !== 'HEAD' && payload && payload !== 'None') {
+            options.body = payload;
+        }
+
+        fetch(url, options)
+            .then(res => {
+                showToast(`Replay Sent! Status: ${res.status}`);
+            })
+            .catch(err => {
+                showToast("Replay blocked by WAF (Expected behavior)");
             });
     }
 

@@ -193,10 +193,12 @@
         </div>
 
         <div id="replay-modal" class="modal hidden">
-            <div class="modal-content glass-panel">
-                <span class="close-modal" onclick="closeModal()">&times;</span>
-                <h2 style="color:var(--primary)"><i class="fas fa-microscope"></i> Forensics Replay</h2>
-                <div id="modal-body" style="margin-top:20px; font-family:monospace; font-size:0.9rem;"></div>
+            <div class="modal-content glass-panel" style="width: 900px; max-width: 95%;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border-subtle); padding-bottom:15px;">
+                    <h2 style="color:var(--primary); margin:0;"><i class="fas fa-user-secret"></i> Forensics Workbench</h2>
+                    <span class="close-modal" onclick="closeModal()" style="font-size:2rem;">&times;</span>
+                </div>
+                <div id="modal-body"></div>
             </div>
         </div>
 

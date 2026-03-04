@@ -119,6 +119,19 @@ def get_all_logs():
     conn.close()
     return logs
 
+# --- NEW: Get single log detail for Forensics Modal ---
+def get_log_by_id(log_id):
+    conn = sqlite3.connect(Config.DB_NAME)
+    conn.row_factory = sqlite3.Row  # Allow access by column name
+    c = conn.cursor()
+    c.execute("SELECT * FROM logs WHERE id = ?", (log_id,))
+    row = c.fetchone()
+    conn.close()
+    
+    if row:
+        return dict(row)
+    return None
+
 def get_all_bans():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
@@ -151,7 +164,7 @@ def get_stats():
     c.execute("SELECT ip_address, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY ip_address ORDER BY count DESC LIMIT 5")
     top_ips = dict(c.fetchall())
 
-    # Top Countries (NEW)
+    # Top Countries
     c.execute("SELECT country, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY country ORDER BY count DESC LIMIT 5")
     top_countries = dict(c.fetchall())
 

@@ -1,7 +1,8 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort, send_file
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv
+# Added get_log_by_id to imports
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id
 from config import Config
 import json
 import io
@@ -66,9 +67,26 @@ def api_stats():
 def api_logs():
     # Returns full logs for the Logs View
     logs = get_all_logs()
-    # Convert tuples to list of dicts
-    data = [{"id": r[0], "time": r[1], "ip": r[2], "method": r[3], "url": r[4], "attack": r[7], "score": r[8], "action": r[9]} for r in logs]
+    # Convert tuples to list of dicts. 
+    # Tuple index 10 is 'country' added in the database update.
+    data = []
+    for r in logs:
+        # Safety check for tuple length in case DB schema varies slightly
+        country = r[10] if len(r) > 10 else "Unknown"
+        data.append({
+            "id": r[0], "time": r[1], "ip": r[2], "method": r[3], 
+            "url": r[4], "attack": r[7], "score": r[8], "action": r[9], 
+            "country": country
+        })
     return jsonify(data)
+
+# --- NEW: Single Log Detail for Forensics Modal ---
+@app.route('/api/logs/<int:log_id>')
+def api_log_detail(log_id):
+    log = get_log_by_id(log_id)
+    if log:
+        return jsonify(log)
+    return jsonify({'error': 'Log not found'}), 404
 
 @app.route('/api/bans')
 def api_bans():
