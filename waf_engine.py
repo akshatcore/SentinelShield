@@ -3,6 +3,7 @@ from rules import PATTERNS
 from database import is_ip_banned, log_event, ban_ip
 from behavior_engine import check_rate_limit
 from config import Config
+from alerts import send_telegram_alert
 
 class WAF:
     def inspect_request(self, ip, method, url, headers, body):
@@ -14,6 +15,7 @@ class WAF:
         if check_rate_limit(ip):
             ban_ip(ip, "Rate Limit Exceeded")
             log_event(ip, method, url, headers, body, "Rate Limit Exceeded", 10, "BLOCKED")
+            send_telegram_alert(ip, "Rate Limit Exceeded", url, 10)  # TRIGGER ALERT
             return {"action": "BLOCKED", "reason": "Rate Limit Exceeded"}
 
         # 3. Signature Inspection (Headers, URL, Body)
@@ -28,7 +30,6 @@ class WAF:
             for attack_type, regex_list in PATTERNS.items():
                 for pattern in regex_list:
                     if pattern.search(content):
-                        # FIX: Increased from 5 to 10 to ensure immediate blocking against default threshold
                         total_score += 10
                         detected_types.add(attack_type)
 
@@ -36,15 +37,16 @@ class WAF:
         if total_score >= Config.BLOCK_THRESHOLD:
             attack_str = ", ".join(detected_types)
             log_event(ip, method, url, headers, body, attack_str, total_score, "BLOCKED")
+            send_telegram_alert(ip, attack_str, url, total_score)  # TRIGGER ALERT
             return {"action": "BLOCKED", "reason": f"Malicious Payload: {attack_str}"}
         
-        # 5. Log Normal Traffic (Optional)
+        # 5. Log Normal Traffic
         if total_score > 0:
              attack_str = ", ".join(detected_types)
              log_event(ip, method, url, headers, body, attack_str, total_score, "ALLOWED")
-        
-        # Uncomment to log ALL traffic:
-        log_event(ip, method, url, headers, body, "Normal", 0, "ALLOWED")
+        else:
+             # Now it will log completely normal traffic too!
+             log_event(ip, method, url, headers, body, "Normal", 0, "ALLOWED")
 
         return {"action": "ALLOWED"}
 

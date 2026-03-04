@@ -16,16 +16,19 @@ class Config:
     BAN_DURATION = 300  # 5 minutes
     
     # GeoIP Configuration
-    # You must download 'GeoLite2-City.mmdb' and place it in the project root
     GEOIP_DB_PATH = os.path.join(os.getcwd(), 'GeoLite2-City.mmdb')
     
     # Secret Key
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'super-secret-sentinel-key'
 
-    # --- NEW: JWT & Admin Authentication ---
+    # --- JWT & Admin Authentication ---
     JWT_SECRET = os.environ.get('JWT_SECRET') or 'elite-soc-jwt-secret-key-change-me'
     JWT_EXPIRATION_HOURS = 12
     
-    # Default Admin Credentials (used to seed the DB on first run)
+    # Default Admin Credentials
     DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER') or 'admin'
     DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS') or 'sentinel123'
+
+    # --- TELEGRAM ALERTS ---
+    TELEGRAM_BOT_TOKEN = "8389008203:AAFEF8Ol8e8qChKHqL76xJaRIbh2dAbOGbw"
+    TELEGRAM_CHAT_ID = "1735115405"
