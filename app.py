@@ -14,6 +14,12 @@ import requests
 import time
 import uuid
 
+# --- NEW: Import Waitress for Production Serving ---
+try:
+    from waitress import serve
+except ImportError:
+    serve = None
+
 # Import our new PDF generators
 try:
     from report_generator import generate_incident_pdf, generate_global_pdf
@@ -358,4 +364,16 @@ def api_download_pdf_report(log_id):
     )
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # --- UPGRADED: PRODUCTION WSGI SERVER ---
+    print("\n=======================================================")
+    print("🛡️  SENTINELSHIELD WAF IS ONLINE")
+    print("🚀 Running on PRODUCTION WSGI Server (Waitress)")
+    print("🌐 Accessible at: http://127.0.0.1:5000/")
+    print("=======================================================\n")
+    
+    if serve:
+        # Waitress handles concurrent traffic perfectly
+        serve(app, host='0.0.0.0', port=5000, threads=6) 
+    else:
+        print("⚠️ Waitress not installed. Falling back to development server.")
+        app.run(host='0.0.0.0', port=5000, debug=True)

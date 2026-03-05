@@ -155,5 +155,16 @@
             });
         });
     </script>
+    <script>
+    // Anti-Snooping UI Restrictions
+    document.addEventListener('contextmenu', event => event.preventDefault()); // Block right-click
+    document.onkeydown = function(e) {
+        if(e.keyCode == 123) return false; // Block F12
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Block Ctrl+Shift+I
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Block Ctrl+Shift+C
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Block Ctrl+Shift+J
+        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Block Ctrl+U (View Source)
+    }
+</script>
 </body>
 </html>

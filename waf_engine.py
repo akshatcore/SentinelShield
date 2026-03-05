@@ -2,7 +2,7 @@
 import requests
 from rules import PATTERNS
 from database import is_ip_banned, log_event, ban_ip, get_cached_reputation, cache_reputation
-from behavior_engine import check_rate_limit
+from behavior_engine import check_rate_limit, learn_from_payload
 from config import Config
 from alerts import send_telegram_alert
 
@@ -44,32 +44,39 @@ def check_ip_reputation(ip):
             cache_reputation(ip, score) # Save to our database cache
             return score
     except Exception as e:
-        print(f"⚠️ Threat Intel API Error: {e}")
+        print(f"⚠️ Threat Intel API Error: {e}", flush=True)
         
     return 0
 
 
 class WAF:
     def inspect_request(self, ip, method, url, headers, body):
+        print(f"\n--- 🔍 NEW REQUEST ARRIVED: {url} ---", flush=True)
+
         # 1. Check if IP is banned locally
         if is_ip_banned(ip):
+            print(f"⛔ BLOCKED AT STEP 1: {ip} is already on the Detention List!", flush=True)
             return {"action": "BLOCKED", "reason": "IP Banned"}
 
         # 2. Rate Limiting
         if check_rate_limit(ip):
+            print(f"⛔ BLOCKED AT STEP 2: {ip} hit the Rate Limiter (Too fast)!", flush=True)
             ban_ip(ip, "Rate Limit Exceeded")
             log_event(ip, method, url, headers, body, "Rate Limit Exceeded", 10, "BLOCKED")
             send_telegram_alert(ip, "Rate Limit Exceeded", url, 10)  # TRIGGER ALERT
             return {"action": "BLOCKED", "reason": "Rate Limit Exceeded"}
 
-        # --- NEW: 2.5 Global Threat Intelligence ---
+        # --- 2.5 Global Threat Intelligence ---
         reputation_score = check_ip_reputation(ip)
         if reputation_score >= getattr(Config, 'ABUSEIPDB_THRESHOLD', 90):
+            print(f"⛔ BLOCKED AT STEP 2.5: Threat Intel AbuseIPDB Score too high!", flush=True)
             reason = f"Known Malicious IP (AbuseIPDB Score: {reputation_score}%)"
             ban_ip(ip, reason) # Instantly ban them locally
             log_event(ip, method, url, headers, body, "Global Threat Intel Block", reputation_score, "BLOCKED")
             send_telegram_alert(ip, f"Threat Intel (Score: {reputation_score}%)", url, reputation_score)
             return {"action": "BLOCKED", "reason": reason}
+
+        print("✅ Passed early checks. Moving to Deep Payload Inspection...", flush=True)
 
         # 3. Signature Inspection (Headers, URL, Body)
         payloads = [url, body] + list(headers.values())
@@ -83,8 +90,12 @@ class WAF:
             for attack_type, regex_list in PATTERNS.items():
                 for pattern in regex_list:
                     if pattern.search(content):
+                        print(f"⚠️ REGEX MATCHED: {attack_type} -> Notifying AI Brain!", flush=True)
                         total_score += 10
                         detected_types.add(attack_type)
+                        
+                        # --- NEW: Trigger Adaptive Defense Learning ---
+                        learn_from_payload(content, attack_type)
 
         # 4. Decision Making
         if total_score >= Config.BLOCK_THRESHOLD:

@@ -59,78 +59,86 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+    // --- CHARTS CONFIG ---
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 
-const MAX_POINTS = 40;
-let bufferIndex = 0;
-
-const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
-
-const trafficChart = new Chart(ctxTraffic, {
-    type: 'line',
-    data: {
-        labels: new Array(MAX_POINTS).fill(''),
-        datasets: [{
-            label: 'Requests/sec',
-            data: new Array(MAX_POINTS).fill(0),
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-
-        plugins: {
-            legend: { display: false }
-        },
-
-        scales: {
-            y: {
-                beginAtZero: true,
-                suggestedMax: 5,
-                grid: { color: 'rgba(255,255,255,0.05)' }
-            },
-            x: {
-                grid: { display: false },
-                ticks: { display: false }
-            }
-        },
-
-        animation: {
-            duration: 120,
-            easing: 'linear'
-        }
-    }
-});
-
-    const ctxAttacks = document.getElementById('attackChart').getContext('2d');
-    const attackChart = new Chart(ctxAttacks, {
-        type: 'bar',
+   const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
+    const trafficChart = new Chart(ctxTraffic, {
+        type: 'line',
         data: {
-            labels: [],
+            labels: Array(20).fill(''),
             datasets: [{
-                label: 'Events',
-                data: [],
-                backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6'],
-                borderRadius: 6,
-                barThickness: 20
+                label: 'Requests/sec',
+                data: Array(20).fill(0),
+                borderColor: '#10b981', // Cyber Emerald Green
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                stepped: true, // MAGIC SETTING: Makes it rigid 90-degree steps
+                pointRadius: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false } } }
+            scales: { 
+                y: { beginAtZero: true, suggestedMax: 5, grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { grid: { display: false, drawBorder: false }, ticks: { display: true } }
+            },
+            animation: { duration: 0 } // Instant sliding, no rubber-banding
+        }
+    });
+const ctxAttacks = document.getElementById('attackChart').getContext('2d');
+    const attackChart = new Chart(ctxAttacks, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Events',
+                data: [],
+                backgroundColor: [
+                    '#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6', '#10b981', '#ec4899', '#14b8a6'
+                ],
+                borderColor: '#0f172a',
+                borderWidth: 2,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            // FIX: Set to true and force a rectangular aspect ratio so it fits the card
+            maintainAspectRatio: true, 
+            aspectRatio: 2.5, 
+            layout: {
+                padding: {
+                    top: 10,
+                    bottom: 35,
+                    left: 10,
+                    right: 10
+                }
+            },
+            plugins: { 
+                legend: { 
+                    display: true, 
+                    position: 'right', 
+                    labels: {
+                        color: '#cbd5e1', 
+                        font: { size: 11 },
+                        boxWidth: 12
+                    }
+                } 
+            },
+            scales: { 
+                x: { display: false }, 
+                y: { display: false } 
+            },
+            cutout: '70%'
         }
     });
 
-    const ctxCountry = document.getElementById('countryChart').getContext('2d');
+  const ctxCountry = document.getElementById('countryChart').getContext('2d');
     const countryChart = new Chart(ctxCountry, {
         type: 'bar',
         data: {
@@ -138,9 +146,11 @@ const trafficChart = new Chart(ctxTraffic, {
             datasets: [{
                 label: 'Attacks',
                 data: [],
-                backgroundColor: '#10b981',
-                borderRadius: 4,
-                barThickness: 15
+                backgroundColor: 'rgba(16, 185, 129, 0.8)', // Semi-transparent Emerald
+                borderColor: '#10b981', // Solid Emerald border
+                borderWidth: 1,
+                borderRadius: 6, // Smooth rounded edges
+                barThickness: 12 // Forces the bar to be sleek and thin
             }]
         },
         options: {
@@ -148,7 +158,10 @@ const trafficChart = new Chart(ctxTraffic, {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { grid: { display: false } } }
+            scales: { 
+                x: { grid: { color: 'rgba(255,255,255,0.05)' } }, 
+                y: { grid: { display: false } } 
+            }
         }
     });
 
@@ -164,9 +177,10 @@ const trafficChart = new Chart(ctxTraffic, {
                 return res.json();
             })
             .then(data => {
-                if(!data || !data.blocked) return;
+                // FIX 1: If data is completely missing, abort. Do NOT abort if blocked is just 0!
+                if(!data || typeof data.blocked === 'undefined') return; 
 
-                animateValue('blocked-count', parseInt(document.getElementById('blocked-count').innerText), data.blocked, 1000);
+                animateValue('blocked-count', parseInt(document.getElementById('blocked-count').innerText) || 0, data.blocked, 1000);
                 document.getElementById('total-count').innerText = data.total;
                 document.getElementById('ban-count').innerText = data.bans;
 
@@ -174,6 +188,7 @@ const trafficChart = new Chart(ctxTraffic, {
                 lastTotal = data.total;
                 const timeStr = new Date().toLocaleTimeString();
                 
+                // Keep the graph ticking forward every single second, even if traffic is 0
                 trafficChart.data.labels.push(timeStr);
                 trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0);
                 if(trafficChart.data.labels.length > 20) {
@@ -193,47 +208,49 @@ const trafficChart = new Chart(ctxTraffic, {
                 }
 
                 // --- THREAT HEATMAP RENDERER ---
-                if(data.top_endpoints) {
-                    const heatmapContainer = document.getElementById('heatmap-body');
-                    if (heatmapContainer) {
-                        heatmapContainer.innerHTML = '';
-                        const counts = Object.values(data.top_endpoints);
-                        const maxCount = counts.length ? Math.max(...counts) : 1;
+                const heatmapContainer = document.getElementById('heatmap-body');
+                if(data.top_endpoints && heatmapContainer) {
+                    heatmapContainer.innerHTML = '';
+                    const counts = Object.values(data.top_endpoints);
+                    const maxCount = counts.length ? Math.max(...counts) : 1;
+                    
+                    for (const [url, count] of Object.entries(data.top_endpoints)) {
+                        const percentage = Math.max(10, (count / maxCount) * 100);
+                        const safeUrl = url.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                         
-                        for (const [url, count] of Object.entries(data.top_endpoints)) {
-                            const percentage = Math.max(10, (count / maxCount) * 100);
-                            heatmapContainer.innerHTML += `
-                                <div style="margin-bottom: 12px;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-                                        <span style="font-family: monospace; color: #cbd5e1;">${url}</span>
-                                        <span style="color: var(--danger); font-weight: bold;">${count} hits</span>
-                                    </div>
-                                    <div style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 8px;">
-                                        <div style="width: ${percentage}%; background: var(--danger); height: 100%; box-shadow: 0 0 8px var(--danger);"></div>
-                                    </div>
+                        heatmapContainer.innerHTML += `
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                                    <span style="font-family: monospace; color: #cbd5e1;">${safeUrl}</span>
+                                    <span style="color: var(--danger); font-weight: bold;">${count} hits</span>
                                 </div>
-                            `;
-                        }
+                                <div style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 8px;">
+                                    <div style="width: ${percentage}%; background: var(--danger); height: 100%; box-shadow: 0 0 8px var(--danger);"></div>
+                                </div>
+                            </div>
+                        `;
                     }
                 }
 
                 const tbody = document.getElementById('logs-body-live');
-                tbody.innerHTML = '';
-                data.logs.slice(0, 5).forEach(log => {
-                    const riskClass = log[8] > 20 ? 'badge-crit' : (log[8] > 10 ? 'badge-high' : 'badge-low');
-                    const riskLabel = log[8] > 20 ? 'CRITICAL' : (log[8] > 10 ? 'HIGH' : 'LOW');
-                    const flag = getFlag(log[10] || 'Unknown'); 
-                    
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><span style="color:var(--primary)">${log[1].split(' ')[1]}</span></td>
-                            <td>${log[2]}</td>
-                            <td>${flag} ${log[10] || 'UNK'}</td>
-                            <td>${log[7]}</td>
-                            <td><span class="badge ${riskClass}">${riskLabel}</span></td>
-                        </tr>
-                    `;
-                });
+                if (tbody && data.logs) {
+                    tbody.innerHTML = '';
+                    data.logs.slice(0, 5).forEach(log => {
+                        const riskClass = log[8] >= 20 ? 'badge-crit' : (log[8] >= 10 ? 'badge-high' : 'badge-low');
+                        const riskLabel = log[8] >= 20 ? 'CRITICAL' : (log[8] >= 10 ? 'HIGH' : 'LOW');
+                        const flag = getFlag(log[10] || 'Unknown'); 
+                        
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><span style="color:var(--primary)">${log[1].split(' ')[1]}</span></td>
+                                <td>${log[2]}</td>
+                                <td>${flag} ${log[10] || 'UNK'}</td>
+                                <td>${log[7]}</td>
+                                <td><span class="badge ${riskClass}">${riskLabel}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
             })
             .catch(err => console.log("Waiting for server...", err));
     }
@@ -251,6 +268,7 @@ const trafficChart = new Chart(ctxTraffic, {
         const increment = end > start ? 1 : -1;
         const stepTime = Math.abs(Math.floor(duration / range));
         const obj = document.getElementById(id);
+        if (!obj) return;
         const timer = setInterval(function() {
             current += increment;
             obj.innerHTML = current;
@@ -264,18 +282,21 @@ const trafficChart = new Chart(ctxTraffic, {
             .then(res => res.json())
             .then(data => {
                 const tbody = document.getElementById('logs-body-full');
+                if (!tbody) return;
                 tbody.innerHTML = '';
                 data.forEach(log => {
                     let badgeClass = 'badge-low';
-                    if(log.score > 20) badgeClass = 'badge-crit';
-                    else if(log.score > 10) badgeClass = 'badge-high';
+                    if(log.score >= 20) badgeClass = 'badge-crit';
+                    else if(log.score >= 10) badgeClass = 'badge-high';
+                    
+                    const safeUrl = log.url.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     
                     tbody.innerHTML += `
                         <tr>
                             <td>${log.time}</td>
                             <td style="font-family:monospace; color:var(--accent)">${log.ip}</td>
                             <td>${log.method}</td>
-                            <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.8">${log.url}</td>
+                            <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.8">${safeUrl}</td>
                             <td>${log.attack}</td>
                             <td><span class="badge ${badgeClass}">Score: ${log.score}</span></td>
                             <td>${log.action}</td>
@@ -299,6 +320,7 @@ const trafficChart = new Chart(ctxTraffic, {
             .then(res => res.json())
             .then(data => {
                 const tbody = document.getElementById('blacklist-body');
+                if (!tbody) return;
                 tbody.innerHTML = '';
                 if(data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted)">No active threats detained.</td></tr>';
@@ -333,6 +355,7 @@ const trafficChart = new Chart(ctxTraffic, {
                 const badge = document.getElementById('telegram-status-badge');
                 const btn = document.getElementById('btn-telegram-connect');
                 const container = document.getElementById('telegram-pairing-container');
+                if(!badge) return;
 
                 if (data.status === 'linked') {
                     badge.innerHTML = '<span class="badge" style="background:var(--success); color:black; font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
@@ -368,10 +391,16 @@ const trafficChart = new Chart(ctxTraffic, {
     };
 
     // --- ADAPTIVE DEFENSE LOGIC ---
+    let lastRulesHash = ""; 
+
     window.loadAdaptiveRules = function() {
         fetch('/api/rules/suggested')
             .then(res => res.json())
             .then(data => {
+                const currentHash = JSON.stringify(data);
+                if (currentHash === lastRulesHash) return; 
+                lastRulesHash = currentHash;
+
                 const container = document.getElementById('adaptive-rules-body');
                 if (!container) return; 
                 
@@ -382,15 +411,17 @@ const trafficChart = new Chart(ctxTraffic, {
                 }
                 
                 data.forEach(rule => {
+                    const safePattern = rule.pattern.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    
                     container.innerHTML += `
-                        <div class="glass-panel" style="padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--warning); background: rgba(0,0,0,0.2);">
+                        <div class="glass-panel fade-in" style="padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--warning); background: rgba(0,0,0,0.2);">
                             <div style="display:flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <div style="font-size: 0.8rem; color: var(--warning); font-weight: bold; margin-bottom: 5px;">
                                         <i class="fas fa-brain"></i> AI SUGGESTED RULE: ${rule.attack_type}
                                     </div>
                                     <div style="font-family: monospace; color: #f87171; background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; word-break: break-all;">
-                                        ${rule.pattern}
+                                        ${safePattern}
                                     </div>
                                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
                                         Confidence: ${rule.confidence}% | First Detected: ${rule.created_at}
@@ -478,13 +509,41 @@ const trafficChart = new Chart(ctxTraffic, {
         });
     };
 
+    // FIX 2: Manually zero out the entire UI instantly when the DB clears!
     window.clearDatabase = function() {
         if(!confirm("Are you sure? This will delete all Logs and Bans.")) return;
         fetch('/api/database/clear', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 showToast(data.message);
+                
+                // Reset Backend Memory
                 lastTotal = 0; 
+                
+                // Reset Top Counter Cards
+                document.getElementById('blocked-count').innerText = "0";
+                document.getElementById('total-count').innerText = "0";
+                document.getElementById('ban-count').innerText = "0";
+                
+                // Clear Tables and Heatmaps
+                const liveLogs = document.getElementById('logs-body-live');
+                if(liveLogs) liveLogs.innerHTML = "";
+                
+                const heatmap = document.getElementById('heatmap-body');
+                if(heatmap) heatmap.innerHTML = "";
+                
+                // Flatten all Chart.js Graphs visually immediately
+                trafficChart.data.labels = Array(20).fill('');
+                trafficChart.data.datasets[0].data = Array(20).fill(0);
+                trafficChart.update();
+                
+                attackChart.data.labels = [];
+                attackChart.data.datasets[0].data = [];
+                attackChart.update();
+                
+                countryChart.data.labels = [];
+                countryChart.data.datasets[0].data = [];
+                countryChart.update();
             });
     };
 
@@ -505,6 +564,7 @@ const trafficChart = new Chart(ctxTraffic, {
                 } catch(e) { headersHtml = log.headers; }
 
                 const curlCmd = generateCurl(log);
+                const safePayload = log.payload ? log.payload.replace(/</g, "&lt;").replace(/>/g, "&gt;") : 'No Body Content';
 
                 body.innerHTML = `
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
@@ -520,13 +580,13 @@ const trafficChart = new Chart(ctxTraffic, {
 
                     <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:1px solid var(--border-subtle); margin-bottom:15px;">
                         <div style="font-weight:bold; color:#3b82f6; margin-bottom:10px;">HTTP REQUEST</div>
-                        <div style="font-family:monospace; margin-bottom:10px;">${log.method} ${log.url}</div>
+                        <div style="font-family:monospace; margin-bottom:10px;">${log.method} ${log.url.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
                         <div style="font-family:monospace; font-size:0.85rem; color:#cbd5e1; max-height:100px; overflow-y:auto;">${headersHtml}</div>
                     </div>
 
                     <div style="background:rgba(239,68,68,0.1); padding:15px; border-radius:8px; border:1px solid var(--danger); margin-bottom:20px;">
                         <div style="font-weight:bold; color:var(--danger); margin-bottom:10px;">DETECTED PAYLOAD</div>
-                        <pre style="color:#fca5a5; white-space:pre-wrap; margin:0; font-size:0.9rem;">${log.payload || 'No Body Content'}</pre>
+                        <pre style="color:#fca5a5; white-space:pre-wrap; margin:0; font-size:0.9rem;">${safePayload}</pre>
                     </div>
 
                     <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -580,12 +640,17 @@ const trafficChart = new Chart(ctxTraffic, {
 
     function showToast(msg) {
         const toast = document.getElementById('toast');
+        if(!toast) return;
         toast.innerText = msg;
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 3000);
     }
 
-    setInterval(fetchStats, 2000);
+    setInterval(() => {
+        fetchStats();
+        loadAdaptiveRules();
+    }, 1000);
+    
     fetchStats();
     loadAdaptiveRules(); 
 });
