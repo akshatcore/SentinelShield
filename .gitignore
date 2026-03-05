@@ -1,5 +1,26 @@
+# --- Environment & Secrets ---
+.env
+
+# --- Local Databases & Logs ---
+sentinel.db
+*.sqlite3
+*.db
+
+# --- Threat Intelligence Databases ---
 GeoLite2-City.mmdb
 *.mmdb
-.env
-sentinel.db
+
+# --- Python Caches & Virtual Environments ---
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.venv/
+
+# --- OS & IDE Junk Files ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
