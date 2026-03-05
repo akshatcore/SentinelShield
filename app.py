@@ -1,18 +1,24 @@
 # app.py
-from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for
+from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for, Response
 from waf_engine import waf
-# ADDED Adaptive Defense imports
 from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, get_suggested_rules, approve_suggested_rule, reject_suggested_rule
 from config import Config
 import json
 import io
 import jwt
 import datetime
+import os
 from functools import wraps
 import threading
 import requests
 import time
 import uuid
+
+# Import our new PDF generator
+try:
+    from report_generator import generate_incident_pdf
+except ImportError:
+    generate_incident_pdf = None
 
 app = Flask(__name__)
 
@@ -139,17 +145,51 @@ def api_auth_logout():
     resp.set_cookie('auth_token', '', expires=0)
     return resp
 
-# --- VULNERABLE ENDPOINT SIMULATION ---
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        return "Login Failed (Simulation)", 200
-    return "Login Page (Protected)", 200
+# --- NEW: REVERSE PROXY MODE ---
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+def reverse_proxy(path):
+    """
+    Acts as a Gateway. If the WAF allows the request, it gets forwarded here.
+    This forwards the traffic to your actual protected web application.
+    """
+    proxy_url = os.environ.get('REVERSE_PROXY_URL')
+    
+    # Fallback: If no backend is set, just return a success message
+    if not proxy_url:
+        return jsonify({
+            "message": "SentinelShield WAF Active.",
+            "status": "Protected",
+            "endpoint": f"/{path}",
+            "note": "Configure REVERSE_PROXY_URL in your .env file to forward traffic to your backend."
+        }), 200
 
-@app.route('/search')
-def search():
-    query = request.args.get('q', '')
-    return f"Search results for: {query}"
+    target_url = f"{proxy_url}/{path}"
+    if request.query_string:
+        target_url += f"?{request.query_string.decode('utf-8')}"
+
+    try:
+        # Forward headers, but strip 'Host' so the backend doesn't get confused
+        headers = {key: value for (key, value) in request.headers if key.lower() != 'host'}
+        
+        resp = requests.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            timeout=15
+        )
+
+        # Strip headers that Flask will automatically recreate
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        resp_headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+        
+        return Response(resp.content, resp.status_code, resp_headers)
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": "502 Bad Gateway", "message": f"SentinelShield could not reach backend at {proxy_url}"}), 502
+
 
 # --- DASHBOARD PAGE ---
 @app.route('/')
@@ -243,8 +283,7 @@ def api_telegram_generate():
     link = f"https://t.me/{bot_username}?start={sync_token}"
     return jsonify({"status": "success", "link": link})
 
-# --- NEW: ADAPTIVE DEFENSE ENDPOINTS ---
-
+# --- ADAPTIVE DEFENSE ENDPOINTS ---
 @app.route('/api/rules/suggested')
 @token_required
 def api_get_suggested_rules():
@@ -260,10 +299,10 @@ def api_get_suggested_rules():
 @app.route('/api/rules/approve/<int:rule_id>', methods=['POST'])
 @token_required
 def api_approve_rule(rule_id):
-    from rules import load_custom_rules # Import dynamically to avoid circular dependencies
+    from rules import load_custom_rules
     success = approve_suggested_rule(rule_id)
     if success:
-        load_custom_rules() # Immediately reload the WAF patterns in memory
+        load_custom_rules()
         return jsonify({"status": "success", "message": "Rule approved and deployed to WAF."})
     return jsonify({"status": "error", "message": "Failed to approve rule."}), 400
 
@@ -275,8 +314,7 @@ def api_reject_rule(rule_id):
         return jsonify({"status": "success", "message": "Rule rejected and dismissed."})
     return jsonify({"status": "error", "message": "Failed to reject rule."}), 400
 
-# --- MAINTENANCE ENDPOINTS ---
-
+# --- MAINTENANCE & REPORTS ---
 @app.route('/api/database/clear', methods=['POST'])
 @token_required
 def api_clear_db():
@@ -295,6 +333,24 @@ def api_download_report():
         mimetype='text/csv',
         as_attachment=True,
         download_name='sentinel_security_report.csv'
+    )
+
+@app.route('/api/report/pdf/<int:log_id>')
+@token_required
+def api_download_pdf_report(log_id):
+    if not generate_incident_pdf:
+        return jsonify({"error": "ReportLab missing", "message": "Run: pip install reportlab"}), 501
+        
+    log = get_log_by_id(log_id)
+    if not log:
+        return jsonify({"error": "Not Found", "message": "Log entry does not exist."}), 404
+        
+    pdf_buffer = generate_incident_pdf(log)
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f'Sentinel_Incident_{log_id}.pdf'
     )
 
 if __name__ == '__main__':
