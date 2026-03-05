@@ -329,6 +329,7 @@ def api_clear_db():
     return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
 
 # --- UPDATED: THIS NOW GENERATES THE GLOBAL PDF REPORT ---
+# --- UPDATED: THIS NOW PASSES LOGS TO THE MULTI-PAGE PDF REPORT ---
 @app.route('/api/report/download')
 @token_required
 def api_download_report():
@@ -336,7 +337,17 @@ def api_download_report():
         return jsonify({"error": "ReportLab missing", "message": "Run: pip install reportlab"}), 501
         
     stats = get_stats()
-    pdf_buffer = generate_global_pdf(stats)
+    
+    # NEW: Fetch logs and pass to the PDF generator
+    raw_logs = get_all_logs()
+    logs_data = []
+    for r in raw_logs:
+        logs_data.append({
+            "id": r[0], "time": r[1], "ip": r[2], "method": r[3], 
+            "url": r[4], "attack": r[7], "score": r[8]
+        })
+        
+    pdf_buffer = generate_global_pdf(stats, logs_data)
     
     return send_file(
         pdf_buffer,
@@ -344,7 +355,6 @@ def api_download_report():
         as_attachment=True,
         download_name='Sentinel_Global_Report.pdf'
     )
-
 @app.route('/api/report/pdf/<int:log_id>')
 @token_required
 def api_download_pdf_report(log_id):
