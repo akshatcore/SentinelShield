@@ -14,11 +14,12 @@ import requests
 import time
 import uuid
 
-# Import our new PDF generator
+# Import our new PDF generators
 try:
-    from report_generator import generate_incident_pdf
+    from report_generator import generate_incident_pdf, generate_global_pdf
 except ImportError:
     generate_incident_pdf = None
+    generate_global_pdf = None
 
 app = Flask(__name__)
 
@@ -321,18 +322,21 @@ def api_clear_db():
     clear_database()
     return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
 
+# --- UPDATED: THIS NOW GENERATES THE GLOBAL PDF REPORT ---
 @app.route('/api/report/download')
 @token_required
 def api_download_report():
-    csv_data = export_logs_csv()
-    mem = io.BytesIO()
-    mem.write(csv_data.encode('utf-8'))
-    mem.seek(0)
+    if not generate_global_pdf:
+        return jsonify({"error": "ReportLab missing", "message": "Run: pip install reportlab"}), 501
+        
+    stats = get_stats()
+    pdf_buffer = generate_global_pdf(stats)
+    
     return send_file(
-        mem,
-        mimetype='text/csv',
+        pdf_buffer,
+        mimetype='application/pdf',
         as_attachment=True,
-        download_name='sentinel_security_report.csv'
+        download_name='Sentinel_Global_Report.pdf'
     )
 
 @app.route('/api/report/pdf/<int:log_id>')

@@ -52,40 +52,62 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             pageTitle.innerText = titles[target];
 
+            if(target === 'dashboard') loadAdaptiveRules();
             if(target === 'logs') loadFullLogs();
             if(target === 'blacklist') loadBlacklist();
             if(target === 'settings') loadSettings();
         });
     });
 
-    // --- CHARTS CONFIG ---
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
 
-    const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
-    const trafficChart = new Chart(ctxTraffic, {
-        type: 'line',
-        data: {
-            labels: Array(10).fill(''),
-            datasets: [{
-                label: 'Requests/sec',
-                data: Array(10).fill(0),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 0
-            }]
+const MAX_POINTS = 40;
+let bufferIndex = 0;
+
+const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
+
+const trafficChart = new Chart(ctxTraffic, {
+    type: 'line',
+    data: {
+        labels: new Array(MAX_POINTS).fill(''),
+        datasets: [{
+            label: 'Requests/sec',
+            data: new Array(MAX_POINTS).fill(0),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        plugins: {
+            legend: { display: false }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } },
-            animation: { duration: 0 }
+
+        scales: {
+            y: {
+                beginAtZero: true,
+                suggestedMax: 5,
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            },
+            x: {
+                grid: { display: false },
+                ticks: { display: false }
+            }
+        },
+
+        animation: {
+            duration: 120,
+            easing: 'linear'
         }
-    });
+    }
+});
 
     const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     const attackChart = new Chart(ctxAttacks, {
@@ -96,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 label: 'Events',
                 data: [],
                 backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6'],
-                borderRadius: 4,
+                borderRadius: 6,
                 barThickness: 20
             }]
         },
@@ -154,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 trafficChart.data.labels.push(timeStr);
                 trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0);
-                if(trafficChart.data.labels.length > 15) {
+                if(trafficChart.data.labels.length > 20) {
                     trafficChart.data.labels.shift();
                     trafficChart.data.datasets[0].data.shift();
                 }
@@ -168,6 +190,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     countryChart.data.labels = Object.keys(data.top_countries).map(code => getFlag(code) + " " + code);
                     countryChart.data.datasets[0].data = Object.values(data.top_countries);
                     countryChart.update();
+                }
+
+                // --- THREAT HEATMAP RENDERER ---
+                if(data.top_endpoints) {
+                    const heatmapContainer = document.getElementById('heatmap-body');
+                    if (heatmapContainer) {
+                        heatmapContainer.innerHTML = '';
+                        const counts = Object.values(data.top_endpoints);
+                        const maxCount = counts.length ? Math.max(...counts) : 1;
+                        
+                        for (const [url, count] of Object.entries(data.top_endpoints)) {
+                            const percentage = Math.max(10, (count / maxCount) * 100);
+                            heatmapContainer.innerHTML += `
+                                <div style="margin-bottom: 12px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                                        <span style="font-family: monospace; color: #cbd5e1;">${url}</span>
+                                        <span style="color: var(--danger); font-weight: bold;">${count} hits</span>
+                                    </div>
+                                    <div style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 8px;">
+                                        <div style="width: ${percentage}%; background: var(--danger); height: 100%; box-shadow: 0 0 8px var(--danger);"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
                 }
 
                 const tbody = document.getElementById('logs-body-live');
@@ -278,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
     }
 
-    // --- NEW: TELEGRAM UI LOGIC ---
+    // --- TELEGRAM UI LOGIC ---
     window.checkTelegramStatus = function() {
         fetch('/api/telegram/status')
             .then(res => res.json())
@@ -290,17 +337,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'linked') {
                     badge.innerHTML = '<span class="badge" style="background:var(--success); color:black; font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
                     btn.style.display = 'none';
-                    container.classList.add('hidden');
+                    if(container) container.classList.add('hidden');
                 } else if (data.status === 'pending') {
                     badge.innerHTML = '<span class="badge" style="background:var(--warning); color:black; font-weight:bold;"><i class="fas fa-clock"></i> Pending Verification...</span>';
                     btn.style.display = 'none';
-                    container.classList.remove('hidden');
-                    // Check again in 3 seconds to auto-update
+                    if(container) container.classList.remove('hidden');
                     setTimeout(checkTelegramStatus, 3000);
                 } else {
                     badge.innerHTML = '<span class="badge badge-low"><i class="fas fa-times-circle"></i> Not Connected</span>';
                     btn.style.display = 'block';
-                    container.classList.add('hidden');
+                    if(container) container.classList.add('hidden');
                 }
             });
     };
@@ -321,6 +367,68 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
 
+    // --- ADAPTIVE DEFENSE LOGIC ---
+    window.loadAdaptiveRules = function() {
+        fetch('/api/rules/suggested')
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('adaptive-rules-body');
+                if (!container) return; 
+                
+                container.innerHTML = '';
+                if (data.length === 0) {
+                    container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); font-size: 0.9rem;"><i class="fas fa-shield-alt"></i> No new patterns detected. WAF is operating normally.</div>';
+                    return;
+                }
+                
+                data.forEach(rule => {
+                    container.innerHTML += `
+                        <div class="glass-panel" style="padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--warning); background: rgba(0,0,0,0.2);">
+                            <div style="display:flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 0.8rem; color: var(--warning); font-weight: bold; margin-bottom: 5px;">
+                                        <i class="fas fa-brain"></i> AI SUGGESTED RULE: ${rule.attack_type}
+                                    </div>
+                                    <div style="font-family: monospace; color: #f87171; background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; word-break: break-all;">
+                                        ${rule.pattern}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                                        Confidence: ${rule.confidence}% | First Detected: ${rule.created_at}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-direction: column;">
+                                    <button class="btn-primary" style="background: var(--success); border-color: var(--success); font-size: 0.8rem; padding: 6px 12px;" onclick="approveRule(${rule.id})">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                    <button class="btn-danger" style="font-size: 0.8rem; padding: 6px 12px;" onclick="rejectRule(${rule.id})">
+                                        <i class="fas fa-times"></i> Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+    }
+
+    window.approveRule = function(id) {
+        fetch(`/api/rules/approve/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { 
+                showToast(data.message); 
+                loadAdaptiveRules(); 
+            });
+    }
+
+    window.rejectRule = function(id) {
+        fetch(`/api/rules/reject/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { 
+                showToast(data.message); 
+                loadAdaptiveRules(); 
+            });
+    }
+
     window.loadSettings = function() {
         fetch('/api/settings')
             .then(res => res.json())
@@ -334,7 +442,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('val-duration').innerText = data.ban_duration;
             });
         
-        // Check pairing status whenever they open the Settings tab
         checkTelegramStatus();
     }
 
@@ -377,7 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(res => res.json())
             .then(data => {
                 showToast(data.message);
-                updateStats();
+                lastTotal = 0; 
             });
     };
 
@@ -423,6 +530,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
 
                     <div style="display:flex; gap:10px; justify-content:flex-end;">
+                        <button class="btn-primary" onclick="window.location.href='/api/report/pdf/${log.id}'" style="background: var(--warning); border-color: var(--warning);">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                        
                         <button class="btn-primary" onclick="copyToClipboard('${curlCmd.replace(/'/g, "\\'")}')">
                             <i class="fas fa-copy"></i> Copy cURL
                         </button>
@@ -476,4 +587,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setInterval(fetchStats, 2000);
     fetchStats();
+    loadAdaptiveRules(); 
 });

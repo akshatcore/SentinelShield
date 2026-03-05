@@ -51,7 +51,7 @@ def init_db():
         last_checked TEXT
     )''')
 
-    # --- NEW: Adaptive Defense Rules Table ---
+    # --- Adaptive Defense Rules Table ---
     c.execute('''CREATE TABLE IF NOT EXISTS adaptive_rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pattern TEXT UNIQUE,
@@ -215,7 +215,7 @@ def cache_reputation(ip, score):
     conn.commit()
     conn.close()
 
-# --- NEW: ADAPTIVE DEFENSE LOGIC ---
+# --- ADAPTIVE DEFENSE LOGIC ---
 def suggest_rule(pattern, attack_type, confidence=85):
     """Called by the WAF engine when it spots a highly repetitive attack pattern."""
     conn = sqlite3.connect(Config.DB_NAME)
@@ -312,6 +312,10 @@ def get_stats():
     c.execute("SELECT country, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY country ORDER BY count DESC LIMIT 5")
     top_countries = dict(c.fetchall())
 
+    # --- NEW: THREAT HEATMAP DATA ---
+    c.execute("SELECT url, COUNT(*) as count FROM logs WHERE attack_type != 'Normal' GROUP BY url ORDER BY count DESC LIMIT 5")
+    top_endpoints = dict(c.fetchall())
+
     c.execute("SELECT * FROM logs ORDER BY id DESC LIMIT 10")
     recent_logs = c.fetchall()
     
@@ -324,6 +328,7 @@ def get_stats():
         "attacks": attack_dist,
         "top_ips": top_ips,
         "top_countries": top_countries,
+        "top_endpoints": top_endpoints, # Added here!
         "logs": recent_logs
     }
 
