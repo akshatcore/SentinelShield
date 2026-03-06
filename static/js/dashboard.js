@@ -650,6 +650,28 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         fetchStats();
         loadAdaptiveRules();
     }, 1000);
+
+    // --- AI KNOWLEDGE MANAGEMENT ---
+    window.clearAIKnowledge = function() {
+        if(confirm("⚠️ WARNING: This will permanently delete all dynamically learned Regex rules and wipe the AI's memory. The WAF will revert to its baseline configuration. Are you sure?")) {
+            fetch('/api/ai/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    showToast("🧠 AI Knowledge Wiped & Baseline Restored!");
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    alert("Error: " + data.message);
+                }
+            })
+            .catch(err => console.error("Error clearing AI:", err));
+        }
+    };
     
     fetchStats();
     loadAdaptiveRules(); 

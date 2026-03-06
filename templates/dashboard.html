@@ -237,10 +237,15 @@
                         <div style="font-size: 0.85rem; color: var(--text-muted);"><i class="fas fa-circle-notch fa-spin"></i> Waiting for handshake... This window will update automatically.</div>
                     </div>
                 </div>
-                <div style="margin-top: 40px; display:flex; justify-content:space-between; align-items:center;">
-                    <button class="btn-danger" onclick="clearDatabase()">
-                        <i class="fas fa-trash"></i> Clear Database
-                    </button>
+                <div style="margin-top: 40px; display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--border-subtle); padding-top: 30px;">
+                    <div style="display: flex; gap: 15px;">
+                        <button class="btn-danger" onclick="clearDatabase()">
+                            <i class="fas fa-trash"></i> Clear Database
+                        </button>
+                        <button class="btn-danger" onclick="clearAIKnowledge()" style="background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; color: #fcd34d;">
+                            <i class="fas fa-brain"></i> Clear AI Knowledge
+                        </button>
+                    </div>
                     <button class="btn-primary" onclick="saveSettings()">Apply Configuration</button>
                 </div>
             </div>

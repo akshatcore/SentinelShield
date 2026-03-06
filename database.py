@@ -333,12 +333,16 @@ def get_stats():
     }
 
 # --- MAINTENANCE ---
+# --- MAINTENANCE ---
 def clear_database():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     c.execute("DELETE FROM logs")
     c.execute("DELETE FROM bans")
     c.execute("DELETE FROM ip_reputation") 
+    # Reset auto-increment counters for a clean slate
+    c.execute("DELETE FROM sqlite_sequence WHERE name='logs'")
+    c.execute("DELETE FROM sqlite_sequence WHERE name='bans'")
     conn.commit()
     conn.close()
 
@@ -356,3 +360,12 @@ def export_logs_csv():
     writer.writerow(headers)
     writer.writerows(rows)
     return output.getvalue()
+
+def clear_ai_knowledge():
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("DELETE FROM adaptive_rules")
+    # Reset auto-increment counter for rules
+    c.execute("DELETE FROM sqlite_sequence WHERE name='adaptive_rules'")
+    conn.commit()
+    conn.close()

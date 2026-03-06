@@ -1,7 +1,7 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for, Response
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, get_suggested_rules, approve_suggested_rule, reject_suggested_rule
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, get_suggested_rules, approve_suggested_rule, reject_suggested_rule, clear_ai_knowledge
 from config import Config
 import json
 import io
@@ -327,6 +327,14 @@ def api_reject_rule(rule_id):
 def api_clear_db():
     clear_database()
     return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
+@app.route('/api/ai/clear', methods=['POST'])
+@token_required
+def api_clear_ai():
+    clear_ai_knowledge()
+    # We also need to reload the active rules in the WAF engine so it forgets them immediately
+    from rules import load_custom_rules
+    load_custom_rules()
+    return jsonify({"status": "success", "message": "AI Learning Data Cleared Successfully"})
 
 # --- UPDATED: THIS NOW GENERATES THE GLOBAL PDF REPORT ---
 # --- UPDATED: THIS NOW PASSES LOGS TO THE MULTI-PAGE PDF REPORT ---
