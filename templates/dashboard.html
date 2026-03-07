@@ -50,24 +50,24 @@
         </header>
 
         <div id="view-dashboard" class="view-section fade-in">
-
-<div class="stats-grid">
-    <div class="glass-panel stat-card glow-red">
-        <div class="stat-label">Blocked Threats</div>
-        <div class="stat-value" id="blocked-count">0</div>
-        <i class="fas fa-shield-alt stat-icon" style="color: var(--danger);"></i>
-    </div>
-    <div class="glass-panel stat-card glow-blue">
-        <div class="stat-label">Total Traffic</div>
-        <div class="stat-value" id="total-count">0</div>
-        <i class="fas fa-network-wired stat-icon" style="color: var(--primary);"></i>
-    </div>
-    <div class="glass-panel stat-card glow-orange">
-        <div class="stat-label">Active Detentions</div>
-        <div class="stat-value" id="ban-count">0</div>
-        <i class="fas fa-user-lock stat-icon" style="color: var(--warning);"></i>
-    </div>
-</div>
+            <div class="stats-grid">
+                <div class="glass-panel stat-card glow-red">
+                    <div class="stat-label">Blocked Threats</div>
+                    <div class="stat-value" id="blocked-count">0</div>
+                    <i class="fas fa-shield-alt stat-icon" style="color: var(--danger);"></i>
+                </div>
+                <div class="glass-panel stat-card glow-blue">
+                    <div class="stat-label">Total Traffic</div>
+                    <div class="stat-value" id="total-count">0</div>
+                    <i class="fas fa-network-wired stat-icon" style="color: var(--primary);"></i>
+                </div>
+                <div class="glass-panel stat-card glow-orange">
+                    <div class="stat-label">Active Detentions</div>
+                    <div class="stat-value" id="ban-count">0</div>
+                    <i class="fas fa-user-lock stat-icon" style="color: var(--warning);"></i>
+                </div>
+            </div>
+            
             <div class="charts-wrapper" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
                 <div class="glass-panel chart-card" style="height: 350px;">
                     <div class="chart-header">
@@ -136,27 +136,13 @@
             <div class="glass-panel table-container">
                 <div style="padding: 20px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 15px; align-items: center;">
                     <input type="text" id="log-search-input" placeholder="Search IP or Payload..." style="background: rgba(0,0,0,0.05); border: 1px solid var(--border-subtle); padding: 10px 15px; color: var(--text-main); border-radius: 6px; flex: 1; outline: none;">
-                    
-                    <button class="btn-primary" onclick="filterLogs()">
-                        <i class="fas fa-search"></i> Filter
-                    </button>
-
-                    <button class="btn-primary" onclick="window.location.href='/api/report/download'" style="background: var(--warning); color: white;">
-                        <i class="fas fa-file-pdf"></i> Export Global PDF
-                    </button>
+                    <button class="btn-primary" onclick="filterLogs()"><i class="fas fa-search"></i> Filter</button>
+                    <button class="btn-primary" onclick="window.location.href='/api/report/download'" style="background: var(--warning); color: white;"><i class="fas fa-file-pdf"></i> Export Global PDF</button>
                 </div>
-                
                 <table>
                     <thead>
                         <tr>
-                            <th>TIME</th>
-                            <th>IP ADDRESS</th>
-                            <th>METHOD</th>
-                            <th>URL / PAYLOAD</th>
-                            <th>ATTACK TYPE</th>
-                            <th>RISK SCORE</th>
-                            <th>ACTION</th>
-                            <th>ACTION</th>
+                            <th>TIME</th><th>IP ADDRESS</th><th>METHOD</th><th>URL / PAYLOAD</th><th>ATTACK TYPE</th><th>RISK SCORE</th><th>ACTION</th><th>ACTION</th>
                         </tr>
                     </thead>
                     <tbody id="logs-body-full"></tbody>
@@ -173,56 +159,123 @@
             </div>
         </div>
 
-        <div id="view-settings" class="view-section hidden">
-            <div class="glass-panel" style="padding: 40px; max-width: 800px; margin: 0 auto;">
-                <h3 style="margin-bottom: 30px; color: var(--primary);">Security Engine Parameters</h3>
+ <div id="view-settings" class="view-section hidden">
+            
+            <style>
+                /* Bulletproof Layout CSS to bypass the JS style stripper */
+                .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 24px; margin-bottom: 24px; }
+                .settings-card { padding: 32px; display: flex; flex-direction: column; gap: 24px; }
+                .settings-card h3 { margin: 0; color: var(--primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; margin-bottom: 8px; }
+                .settings-col { display: flex; flex-direction: column; gap: 24px; }
+                .setting-input-text { width: 100%; background: rgba(0,0,0,0.1); border: 1px solid var(--border-subtle); padding: 12px 16px; color: var(--text-main); border-radius: 8px; font-family: monospace; outline: none; box-sizing: border-box; margin-top: 8px; }
+                .setting-row { display: flex; flex-direction: column; gap: 8px; }
+                .setting-row-header { display: flex; justify-content: space-between; font-weight: 600; color: var(--text-main); align-items: center; }
+                .val-badge { color: var(--primary); font-weight: bold; background: rgba(0,0,0,0.2); padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); }
+                .custom-range { width: 100%; margin-top: 8px; margin-bottom: 8px; }
+                .action-footer { padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+                .action-btn-group { display: flex; gap: 16px; flex-wrap: wrap; }
+                .help-text { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+                .upload-group { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+                .ai-table-header { padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+            </style>
+
+            <div class="settings-grid">
                 
-                <div class="setting-item" style="margin-bottom: 25px;">
-                    <div class="setting-header" style="margin-bottom: 10px;">
-                        <span><i class="fas fa-route" style="color: var(--primary);"></i> Reverse Proxy Target URL</span>
+                <div class="glass-panel settings-card">
+                    <h3><i class="fas fa-sliders-h"></i> Security Engine Parameters</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-row-header">
+                            <span><i class="fas fa-route" style="color: var(--primary);"></i> Reverse Proxy Target URL</span>
+                        </div>
+                        <input type="url" id="setting-proxy-url" class="setting-input-text" placeholder="e.g., http://127.0.0.1:8080">
+                        <div class="help-text">The backend web server SentinelShield will protect and forward safe traffic to.</div>
                     </div>
-                    <input type="url" id="setting-proxy-url" placeholder="e.g., http://127.0.0.1:8080" style="width: 100%; background: rgba(0,0,0,0.05); border: 1px solid var(--border-subtle); padding: 12px; color: var(--text-main); border-radius: 6px; font-family: monospace; outline: none;">
-                    <small style="color: var(--text-muted); display: block; margin-top: 8px;">The backend web server SentinelShield will protect and forward safe traffic to.</small>
+
+                    <div class="setting-row">
+                        <div class="setting-row-header">
+                            <span>Block Threshold (Risk Score)</span>
+                            <span id="val-threshold" class="val-badge">10</span>
+                        </div>
+                        <input type="range" min="1" max="100" class="range-slider custom-range" id="setting-threshold" oninput="document.getElementById('val-threshold').innerText=this.value">
+                        <div class="help-text">Lower values increase sensitivity but may cause false positives.</div>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-row-header">
+                            <span>Rate Limit (Req/min)</span>
+                            <span id="val-ratelimit" class="val-badge">20</span>
+                        </div>
+                        <input type="range" min="10" max="1000" class="range-slider custom-range" id="setting-ratelimit" oninput="document.getElementById('val-ratelimit').innerText=this.value">
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-row-header">
+                            <span>Ban Duration (Seconds)</span>
+                            <span id="val-duration" class="val-badge">300</span>
+                        </div>
+                        <input type="range" min="60" max="3600" class="range-slider custom-range" id="setting-duration" oninput="document.getElementById('val-duration').innerText=this.value">
+                    </div>
                 </div>
 
-                <div class="setting-item">
-                    <div class="setting-header">
-                        <span>Block Threshold (Risk Score)</span>
-                        <span id="val-threshold" style="color: var(--primary); font-weight: bold;">10</span>
+                <div class="settings-col">
+                    
+                    <div class="glass-panel settings-card">
+                        <h3><i class="fas fa-paint-brush"></i> UI Personalization</h3>
+                        <div>
+                            <div class="setting-row-header">Command Center Wallpaper</div>
+                            <div class="help-text">Upload a high-res image. Theme engine adapts automatically.</div>
+                            <div class="upload-group">
+                                <input type="file" id="wallpaper-upload" accept="image/png, image/jpeg, image/gif, image/webp" class="hidden" onchange="uploadWallpaper()">
+                                <button class="btn-primary" onclick="document.getElementById('wallpaper-upload').click()" style="background: rgba(5, 150, 105, 0.1); color: var(--success); border: 1px solid rgba(5,150,105,0.3); flex: 1;">
+                                    <i class="fas fa-upload"></i> Upload Image
+                                </button>
+                                <button class="btn-danger" onclick="resetWallpaper()" style="background: rgba(217, 119, 6, 0.1); color: var(--warning); border: 1px solid rgba(217,119,6,0.3); flex: 1;">
+                                    <i class="fas fa-undo"></i> Reset
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <input type="range" min="1" max="100" class="range-slider" id="setting-threshold" oninput="document.getElementById('val-threshold').innerText=this.value">
-                    <small style="color: var(--text-muted); display: block; margin-top: 8px;">Lower values increase sensitivity but may cause false positives.</small>
-                </div>
 
-                <div class="setting-item">
-                    <div class="setting-header">
-                        <span>Rate Limit (Req/min)</span>
-                        <span id="val-ratelimit" style="color: var(--primary); font-weight: bold;">20</span>
+                    <div class="glass-panel settings-card" style="flex: 1;">
+                        <h3><i class="fab fa-telegram"></i> External Integrations</h3>
+                        <div>
+                            <div class="setting-row-header">Telegram Threat Alerts</div>
+                            <div class="help-text">Receive real-time push notifications.</div>
+                            
+                            <div class="upload-group" style="justify-content: space-between; align-items: center;">
+                                <div id="telegram-status-badge"><span class="badge badge-low"><i class="fas fa-spinner fa-spin"></i> Loading...</span></div>
+                                <button class="btn-primary" id="btn-telegram-connect" onclick="generateTelegramLink()" style="background: #0088cc;"><i class="fab fa-telegram-plane"></i> Connect Account</button>
+                            </div>
+                            
+                            <div id="telegram-pairing-container" class="hidden" style="margin-top: 15px; background: rgba(37, 99, 235, 0.05); border: 1px solid var(--primary); padding: 16px; border-radius: 8px;">
+                                <div style="font-weight: 600; color: var(--primary); margin-bottom: 6px;">Step 1: Open this link</div>
+                                <a id="telegram-deep-link" href="#" target="_blank" style="color: var(--primary); font-family: monospace; font-weight: bold; word-break: break-all;">Gen...</a>
+                                <div style="font-weight: 600; color: var(--text-main); margin-top: 12px; margin-bottom: 6px;">Step 2: Press "Start" in bot.</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);"><i class="fas fa-circle-notch fa-spin"></i> Waiting...</div>
+                            </div>
+                        </div>
                     </div>
-                    <input type="range" min="10" max="1000" class="range-slider" id="setting-ratelimit" oninput="document.getElementById('val-ratelimit').innerText=this.value">
                 </div>
+            </div>
 
-                <div class="setting-item">
-                    <div class="setting-header">
-                        <span>Ban Duration (Seconds)</span>
-                        <span id="val-duration" style="color: var(--primary); font-weight: bold;">300</span>
-                    </div>
-                    <input type="range" min="60" max="3600" class="range-slider" id="setting-duration" oninput="document.getElementById('val-duration').innerText=this.value">
+            <div class="glass-panel table-container" style="margin-bottom: 24px;">
+                <div class="ai-table-header">
+                    <h3 style="margin: 0; color: var(--warning); display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-brain pulse-dot" style="background:none; box-shadow:none;"></i> Active AI Knowledge Base
+                    </h3>
+                    <button class="btn-primary" onclick="loadAISummary()" style="font-size: 0.85rem; background: rgba(0,0,0,0.1); border: 1px solid var(--border-subtle); color: var(--text-main);">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
                 </div>
-
-                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--warning); border-top: 1px solid var(--border-subtle); padding-top: 30px; display: flex; justify-content: space-between;">
-                    <span><i class="fas fa-brain pulse-dot" style="background:none; box-shadow:none;"></i> Active AI Knowledge Base</span>
-                    <button class="btn-primary" onclick="loadAISummary()" style="font-size: 0.8rem; background: transparent; border: 1px solid var(--border-subtle); color: var(--text-main);"><i class="fas fa-sync"></i> Refresh Log</button>
-                </h3>
-                
-                <div class="setting-item" style="padding: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 8px;">
-                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
-                        <thead style="background: rgba(0,0,0,0.03); font-size: 0.85rem; color: var(--text-muted);">
+                <div style="overflow-x: auto;">
+                    <table style="min-width: 600px; width: 100%;">
+                        <thead>
                             <tr>
-                                <th style="padding: 12px 20px;">DETECTION VECTOR</th>
-                                <th style="padding: 12px 20px;">GENERATED REGEX PATTERN</th>
-                                <th style="padding: 12px 20px;">DEPLOYED</th>
-                                <th style="padding: 12px 20px; text-align: right;">ACTION</th>
+                                <th>DETECTION VECTOR</th>
+                                <th>GENERATED REGEX PATTERN</th>
+                                <th>DEPLOYED</th>
+                                <th style="text-align: right;">ACTION</th>
                             </tr>
                         </thead>
                         <tbody id="ai-summary-body">
@@ -230,68 +283,22 @@
                         </tbody>
                     </table>
                 </div>
-
-                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--primary); border-top: 1px solid var(--border-subtle); padding-top: 30px;">
-                    <i class="fas fa-paint-brush"></i> UI Personalization
-                </h3>
-                
-                <div class="setting-item" style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; border: 1px solid var(--border-subtle);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: bold; margin-bottom: 5px; color: var(--text-main);">Custom Command Center Wallpaper</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">Upload a high-resolution image to customize your SOC background (Max 5MB).</div>
-                        </div>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="file" id="wallpaper-upload" accept="image/png, image/jpeg, image/gif, image/webp" style="display: none;" onchange="uploadWallpaper()">
-                            <button class="btn-primary" onclick="document.getElementById('wallpaper-upload').click()" style="background: rgba(5, 150, 105, 0.1); color: var(--success);">
-                                <i class="fas fa-upload"></i> Upload Image
-                            </button>
-                            <button class="btn-danger" onclick="resetWallpaper()" style="background: rgba(217, 119, 6, 0.1); color: var(--warning);">
-                                <i class="fas fa-undo"></i> Reset
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--primary); border-top: 1px solid var(--border-subtle); padding-top: 30px;">
-                    <i class="fab fa-telegram"></i> External Integrations
-                </h3>
-                
-                <div class="setting-item" style="background: rgba(0,0,0,0.02); padding: 20px; border-radius: 8px; border: 1px solid var(--border-subtle);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: bold; margin-bottom: 5px; color: var(--text-main);">Telegram Threat Alerts</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">Receive real-time push notifications when threats are blocked.</div>
-                            <div id="telegram-status-badge" style="margin-top: 10px; font-size: 0.85rem;">
-                                <span class="badge badge-low"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
-                            </div>
-                        </div>
-                        <div>
-                            <button class="btn-primary" id="btn-telegram-connect" onclick="generateTelegramLink()" style="background: #0088cc;">
-                                <i class="fab fa-telegram-plane"></i> Connect Account
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="telegram-pairing-container" class="hidden" style="margin-top: 20px; background: rgba(37, 99, 235, 0.05); border: 1px solid var(--primary); padding: 15px; border-radius: 8px;">
-                        <div style="font-weight: bold; color: var(--primary); margin-bottom: 10px;">Step 1: Open this secure link on your device</div>
-                        <a id="telegram-deep-link" href="#" target="_blank" style="color: var(--primary); font-family: monospace; font-size: 1.1rem; font-weight: bold;">Generating...</a>
-                        <div style="font-weight: bold; color: var(--text-main); margin-top: 15px; margin-bottom: 5px;">Step 2: Press the "Start" button in the bot chat.</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);"><i class="fas fa-circle-notch fa-spin"></i> Waiting for handshake... This window will update automatically.</div>
-                    </div>
-                </div>
-                <div style="margin-top: 40px; display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--border-subtle); padding-top: 30px;">
-                    <div style="display: flex; gap: 15px;">
-                        <button class="btn-danger" onclick="clearDatabase()">
-                            <i class="fas fa-trash"></i> Clear Database
-                        </button>
-                        <button class="btn-danger" onclick="clearAIKnowledge()" style="background: rgba(217, 119, 6, 0.1); color: var(--warning);">
-                            <i class="fas fa-brain"></i> Clear AI Knowledge
-                        </button>
-                    </div>
-                    <button class="btn-primary" onclick="saveSettings()">Apply Configuration</button>
-                </div>
             </div>
+
+            <div class="glass-panel action-footer">
+                <div class="action-btn-group">
+                    <button class="btn-danger" onclick="clearDatabase()" style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-trash"></i> Clear Database
+                    </button>
+                    <button class="btn-danger" onclick="clearAIKnowledge()" style="background: rgba(217, 119, 6, 0.1); color: var(--warning); border: 1px solid rgba(217,119,6,0.3); display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-brain"></i> Clear AI Knowledge
+                    </button>
+                </div>
+                <button class="btn-primary" onclick="saveSettings()" style="padding: 12px 32px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-save"></i> Apply Configuration
+                </button>
+            </div>
+            
         </div>
 
         <div id="replay-modal" class="modal hidden">
@@ -311,14 +318,14 @@
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
     // Anti-Snooping UI Restrictions
-    document.addEventListener('contextmenu', event => event.preventDefault()); // Block right-click
+    document.addEventListener('contextmenu', event => event.preventDefault()); 
     document.onkeydown = function(e) {
-        if(e.keyCode == 123) return false; // Block F12
-        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Block Ctrl+Shift+I
-        if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Block Ctrl+Shift+C
-        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Block Ctrl+Shift+J
-        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Block Ctrl+U (View Source)
+        if(e.keyCode == 123) return false; 
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; 
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; 
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; 
+        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; 
     }
-</script>
+    </script>
 </body>
 </html>

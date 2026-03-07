@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
+
+    // UPDATE ADDED: This deletes the hardcoded dark backgrounds from your HTML stat cards 
+    // so the new glass theme can actually work.
+    document.querySelectorAll('.stat-card, .setting-item, .glass-panel, input').forEach(el => {
+        el.removeAttribute('style');
+    });
+
     const navItems = document.querySelectorAll('.nav-item');
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');

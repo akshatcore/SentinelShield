@@ -1,5 +1,6 @@
 # waf_engine.py
 import requests
+import urllib.parse  # NEW: Required to decode %20 into spaces
 from rules import PATTERNS
 from database import is_ip_banned, log_event, ban_ip, get_cached_reputation, cache_reputation
 from behavior_engine import check_rate_limit, learn_from_payload
@@ -78,15 +79,24 @@ class WAF:
 
         print("✅ Passed early checks. Moving to Deep Payload Inspection...", flush=True)
 
-        # 3. Signature Inspection (Headers, URL, Body)
-        payloads = [url, body] + list(headers.values())
+        # --- 3. Signature Inspection & URL Decoding ---
+        
+        # Decode the URL and Body to catch obfuscated attacks (like %20 instead of spaces)
+        decoded_url = urllib.parse.unquote(url)
+        decoded_body = urllib.parse.unquote(body) if body else ""
+        
+        # We test both raw AND decoded strings to ensure no evasion techniques work
+        raw_payloads = [url, decoded_url, body, decoded_body] + list(headers.values())
+        
+        # Clean the list to remove empty strings and duplicates
+        payloads = list(set([p for p in raw_payloads if p and isinstance(p, str)]))
+
         total_score = 0
         detected_types = set()
 
         for content in payloads:
-            if not content or not isinstance(content, str):
-                continue
-                
+            # We loop over a snapshot of items `list(PATTERNS.items())` to prevent
+            # "dictionary changed size during iteration" errors when the AI learns mid-scan
             for attack_type, regex_list in list(PATTERNS.items()):
                 for pattern in regex_list:
                     if pattern.search(content):
@@ -94,7 +104,7 @@ class WAF:
                         total_score += 10
                         detected_types.add(attack_type)
                         
-                        # --- NEW: Trigger Adaptive Defense Learning ---
+                        # Trigger Adaptive Defense Learning using the decoded string
                         learn_from_payload(content, attack_type)
 
         # 4. Decision Making
