@@ -30,10 +30,10 @@ def check_rate_limit(ip):
         return True
     return False
 
-# --- UPGRADED: ADAPTIVE DEFENSE LOGIC ---
+# --- UPGRADED: FULLY AUTONOMOUS ADAPTIVE DEFENSE LOGIC ---
 def learn_from_payload(payload, attack_type):
     """
-    Analyzes repeated suspicious payloads to suggest new defensive rules.
+    Analyzes repeated suspicious payloads and auto-deploys defensive rules.
     """
     if not payload or len(payload) < 5:
         return
@@ -47,16 +47,21 @@ def learn_from_payload(payload, attack_type):
     
     payload_tracker[normalized] += 1
     
-    # --- ADDED FLUSH=TRUE TO FORCE VS CODE TO SHOW IT IMMEDIATELY ---
     print(f"🧠 [AI Brain] Tracked payload {payload_tracker[normalized]}/3 times: {normalized[:30]}...", flush=True)
     
     # Using == 3 is aggressive and catches the attack before the rate-limiter bans the IP
     if payload_tracker[normalized] == 3:
-        print(f"🚨 [AI Brain] THRESHOLD REACHED! Generating dynamic rule for: {attack_type}", flush=True)
+        print(f"🚨 [AI Brain] THRESHOLD REACHED! Auto-generating dynamic rule for: {attack_type}", flush=True)
         
         # Generate a safe regex pattern, truncated to 40 chars so it doesn't get crazy
         safe_pattern = re.escape(normalized[:40])
         
-        # Suggest the rule to the SOC database with an 85% confidence score
+        # Save the rule to the SOC database (now defaults to 'approved'!)
         suggest_rule(safe_pattern, f"AI-Learned: {attack_type}", 85)
-        print(f"✅ [AI Brain] Rule successfully pushed to SOC Dashboard!", flush=True)
+        
+        # --- NEW: HOT-RELOAD THE WAF MEMORY INSTANTLY ---
+        # Deferred import prevents circular dependency issues
+        from rules import load_custom_rules
+        load_custom_rules()
+        
+        print(f"⚡ [AI Brain] Self-Healing Complete: Rule auto-deployed to live memory!", flush=True)

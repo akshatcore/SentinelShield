@@ -40,3 +40,12 @@ class Config:
     ABUSEIPDB_API_KEY = os.environ.get('ABUSEIPDB_API_KEY')
     ABUSEIPDB_THRESHOLD = 90  # Block if abuse confidence is 90% or higher
     ABUSEIPDB_CACHE_HOURS = 24  # Cache results to prevent API rate limiting
+
+    # --- NEW: DYNAMIC REVERSE PROXY TARGET ---
+    # Loads from .env initially, but can now be updated on-the-fly via the Dashboard UI!
+    REVERSE_PROXY_URL = os.environ.get('REVERSE_PROXY_URL')
+
+    # --- NEW: CUSTOM WALLPAPER SETTINGS ---
+    UPLOAD_FOLDER = os.path.join('static', 'uploads')
+    # Limit wallpaper uploads to 5MB to prevent Denial of Service (DoS) attacks
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024

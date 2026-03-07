@@ -217,28 +217,22 @@ def cache_reputation(ip, score):
 
 # --- ADAPTIVE DEFENSE LOGIC ---
 def suggest_rule(pattern, attack_type, confidence=85):
-    """Called by the WAF engine when it spots a highly repetitive attack pattern."""
+    """Called by the WAF engine. NOW FULLY AUTONOMOUS."""
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
-        c.execute("INSERT INTO adaptive_rules (pattern, attack_type, confidence, created_at) VALUES (?, ?, ?, ?)",
+        # Notice we are now hardcoding status to 'approved' so it goes live instantly!
+        c.execute("INSERT INTO adaptive_rules (pattern, attack_type, confidence, status, created_at) VALUES (?, ?, ?, 'approved', ?)",
                   (pattern, attack_type, confidence, now))
         conn.commit()
     except sqlite3.IntegrityError:
-        pass # Pattern already suggested or active
+        pass # Pattern already active
     finally:
         conn.close()
 
-def get_suggested_rules():
-    conn = sqlite3.connect(Config.DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT id, pattern, attack_type, confidence, status, created_at FROM adaptive_rules WHERE status = 'pending' ORDER BY confidence DESC")
-    rules = c.fetchall()
-    conn.close()
-    return rules
-
 def get_active_custom_rules():
+    """Fetches all rules that the WAF engine should load into active memory."""
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
     c.execute("SELECT pattern, attack_type FROM adaptive_rules WHERE status = 'approved'")
@@ -246,22 +240,24 @@ def get_active_custom_rules():
     conn.close()
     return rules
 
-def approve_suggested_rule(rule_id):
+# --- NEW: Fetch all learned rules for the Settings Summary UI ---
+def get_all_ai_rules():
     conn = sqlite3.connect(Config.DB_NAME)
     c = conn.cursor()
-    c.execute("UPDATE adaptive_rules SET status = 'approved' WHERE id = ?", (rule_id,))
+    c.execute("SELECT id, pattern, attack_type, confidence, created_at FROM adaptive_rules WHERE status = 'approved' ORDER BY id DESC")
+    rules = c.fetchall()
+    conn.close()
+    return rules
+
+# --- NEW: Surgical removal of a single rule (False Positive correction) ---
+def delete_ai_rule(rule_id):
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("DELETE FROM adaptive_rules WHERE id = ?", (rule_id,))
     success = conn.total_changes > 0
     conn.commit()
     conn.close()
     return success
-
-def reject_suggested_rule(rule_id):
-    conn = sqlite3.connect(Config.DB_NAME)
-    c = conn.cursor()
-    c.execute("UPDATE adaptive_rules SET status = 'rejected' WHERE id = ?", (rule_id,))
-    success = conn.total_changes > 0
-    conn.commit()
-    conn.close()
 
 # --- DATA FETCHING FOR DASHBOARD ---
 def get_all_logs():

@@ -39,15 +39,18 @@ body {
     overflow: hidden;
     position: relative;
     z-index: 1;
+    /* NEW: Smooth transition when the wallpaper is changed */
+    transition: background-image 1s ease-in-out;
 }
 
 /* This creates a smart, dark overlay over ANY background image 
-   so the dashboard text remains 100% readable! */
+   so the dashboard text remains 100% readable, even on bright custom wallpapers! */
 body::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.4) 100%);
+    /* Fortified the overlay slightly to handle ultra-bright custom wallpapers */
+    background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 100%);
     z-index: -1;
 }
 
@@ -232,7 +235,6 @@ h1 {
     opacity: 0.15;
 }
 
-/* Shifted glows from bottom edge to top edge for a modern look */
 .glow-red { border-top: 2px solid var(--danger); box-shadow: inset 0 20px 40px -20px rgba(239, 68, 68, 0.25); }
 .glow-blue { border-top: 2px solid var(--primary); box-shadow: inset 0 20px 40px -20px rgba(59, 130, 246, 0.25); }
 .glow-orange { border-top: 2px solid var(--warning); box-shadow: inset 0 20px 40px -20px rgba(245, 158, 11, 0.25); }

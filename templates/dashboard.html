@@ -50,13 +50,6 @@
         </header>
 
         <div id="view-dashboard" class="view-section fade-in">
-            <div id="adaptive-rules-container" style="margin-bottom: 24px;">
-                <h3 style="color: var(--warning); margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-brain pulse-dot" style="background:none; box-shadow:none;"></i> Adaptive Defense (AI Learning)
-                </h3>
-                <div id="adaptive-rules-body">
-                    </div>
-            </div>
 
             <div class="stats-grid">
                 <div class="glass-panel stat-card glow-red">
@@ -185,6 +178,14 @@
             <div class="glass-panel" style="padding: 40px; max-width: 800px; margin: 0 auto;">
                 <h3 style="margin-bottom: 30px; color: var(--primary);">Security Engine Parameters</h3>
                 
+                <div class="setting-item" style="margin-bottom: 25px;">
+                    <div class="setting-header" style="margin-bottom: 10px;">
+                        <span><i class="fas fa-route" style="color: var(--primary);"></i> Reverse Proxy Target URL</span>
+                    </div>
+                    <input type="url" id="setting-proxy-url" placeholder="e.g., http://127.0.0.1:8080" style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); padding: 12px; color: white; border-radius: 6px; font-family: monospace;">
+                    <small style="color: var(--text-muted); display: block; margin-top: 8px;">The backend web server SentinelShield will protect and forward safe traffic to.</small>
+                </div>
+
                 <div class="setting-item">
                     <div class="setting-header">
                         <span>Block Threshold (Risk Score)</span>
@@ -208,6 +209,49 @@
                         <span id="val-duration" style="color: var(--primary); font-weight: bold;">300</span>
                     </div>
                     <input type="range" min="60" max="3600" class="range-slider" id="setting-duration" oninput="document.getElementById('val-duration').innerText=this.value">
+                </div>
+
+                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--warning); border-top: 1px solid var(--border-subtle); padding-top: 30px; display: flex; justify-content: space-between;">
+                    <span><i class="fas fa-brain pulse-dot" style="background:none; box-shadow:none;"></i> Active AI Knowledge Base</span>
+                    <button class="btn-primary" onclick="loadAISummary()" style="font-size: 0.8rem; background: transparent; border: 1px solid var(--border-subtle);"><i class="fas fa-sync"></i> Refresh Log</button>
+                </h3>
+                
+                <div class="setting-item" style="padding: 0; overflow: hidden; border: 1px solid var(--border-subtle);">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                        <thead style="background: rgba(0,0,0,0.3); font-size: 0.85rem; color: var(--text-muted);">
+                            <tr>
+                                <th style="padding: 12px 20px;">DETECTION VECTOR</th>
+                                <th style="padding: 12px 20px;">GENERATED REGEX PATTERN</th>
+                                <th style="padding: 12px 20px;">DEPLOYED</th>
+                                <th style="padding: 12px 20px; text-align: right;">ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ai-summary-body">
+                            <tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">Loading AI Memory...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--primary); border-top: 1px solid var(--border-subtle); padding-top: 30px;">
+                    <i class="fas fa-paint-brush"></i> UI Personalization
+                </h3>
+                
+                <div class="setting-item" style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; border: 1px solid var(--border-subtle);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: bold; margin-bottom: 5px;">Custom Command Center Wallpaper</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Upload a high-resolution image to customize your SOC background (Max 5MB).</div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="file" id="wallpaper-upload" accept="image/png, image/jpeg, image/gif, image/webp" style="display: none;" onchange="uploadWallpaper()">
+                            <button class="btn-primary" onclick="document.getElementById('wallpaper-upload').click()" style="background: rgba(16, 185, 129, 0.1); border-color: var(--success); color: var(--success);">
+                                <i class="fas fa-upload"></i> Upload Image
+                            </button>
+                            <button class="btn-danger" onclick="resetWallpaper()" style="background: rgba(245, 158, 11, 0.1); border-color: var(--warning); color: var(--warning);">
+                                <i class="fas fa-undo"></i> Reset
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <h3 style="margin-top: 40px; margin-bottom: 20px; color: var(--primary); border-top: 1px solid var(--border-subtle); padding-top: 30px;">

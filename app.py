@@ -1,7 +1,8 @@
 # app.py
 from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for, Response
+from werkzeug.utils import secure_filename
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, get_suggested_rules, approve_suggested_rule, reject_suggested_rule, clear_ai_knowledge
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, clear_ai_knowledge, get_all_ai_rules, delete_ai_rule
 from config import Config
 import json
 import io
@@ -28,6 +29,14 @@ except ImportError:
     generate_global_pdf = None
 
 app = Flask(__name__)
+
+# --- NEW: WALLPAPER UPLOAD CONFIG ---
+app.config['MAX_CONTENT_LENGTH'] = Config.MAX_CONTENT_LENGTH
+os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Initialize DB on start
 init_db()
@@ -152,22 +161,21 @@ def api_auth_logout():
     resp.set_cookie('auth_token', '', expires=0)
     return resp
 
-# --- NEW: REVERSE PROXY MODE ---
+# --- REVERSE PROXY MODE ---
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 def reverse_proxy(path):
     """
     Acts as a Gateway. If the WAF allows the request, it gets forwarded here.
-    This forwards the traffic to your actual protected web application.
     """
-    proxy_url = os.environ.get('REVERSE_PROXY_URL')
+    # NOW READS FROM DYNAMIC CONFIG MEMORY
+    proxy_url = Config.REVERSE_PROXY_URL
     
-    # Fallback: If no backend is set, just return a success message
     if not proxy_url:
         return jsonify({
             "message": "SentinelShield WAF Active.",
             "status": "Protected",
             "endpoint": f"/{path}",
-            "note": "Configure REVERSE_PROXY_URL in your .env file to forward traffic to your backend."
+            "note": "Configure a Target URL in the Dashboard Settings to forward traffic."
         }), 200
 
     target_url = f"{proxy_url}/{path}"
@@ -175,7 +183,6 @@ def reverse_proxy(path):
         target_url += f"?{request.query_string.decode('utf-8')}"
 
     try:
-        # Forward headers, but strip 'Host' so the backend doesn't get confused
         headers = {key: value for (key, value) in request.headers if key.lower() != 'host'}
         
         resp = requests.request(
@@ -188,7 +195,6 @@ def reverse_proxy(path):
             timeout=15
         )
 
-        # Strip headers that Flask will automatically recreate
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         resp_headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
         
@@ -196,7 +202,6 @@ def reverse_proxy(path):
         
     except requests.exceptions.RequestException as e:
         return jsonify({"error": "502 Bad Gateway", "message": f"SentinelShield could not reach backend at {proxy_url}"}), 502
-
 
 # --- DASHBOARD PAGE ---
 @app.route('/')
@@ -263,17 +268,54 @@ def api_settings():
         if 'block_threshold' in data: Config.BLOCK_THRESHOLD = int(data['block_threshold'])
         if 'rate_limit' in data: Config.MAX_REQUESTS_PER_WINDOW = int(data['rate_limit'])
         if 'ban_duration' in data: Config.BAN_DURATION = int(data['ban_duration'])
+        if 'reverse_proxy_url' in data: Config.REVERSE_PROXY_URL = data['reverse_proxy_url']
+        
         return jsonify({"status": "updated", "message": "Configuration Saved Successfully", "config": {
             "block_threshold": Config.BLOCK_THRESHOLD,
             "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
-            "ban_duration": Config.BAN_DURATION
+            "ban_duration": Config.BAN_DURATION,
+            "reverse_proxy_url": Config.REVERSE_PROXY_URL
         }})
     
     return jsonify({
         "block_threshold": Config.BLOCK_THRESHOLD,
         "rate_limit": Config.MAX_REQUESTS_PER_WINDOW,
-        "ban_duration": Config.BAN_DURATION
+        "ban_duration": Config.BAN_DURATION,
+        "reverse_proxy_url": Config.REVERSE_PROXY_URL or ""
     })
+
+@app.route('/api/settings/wallpaper', methods=['POST'])
+@token_required
+def api_upload_wallpaper():
+    if 'wallpaper' not in request.files:
+        return jsonify({"status": "error", "message": "No file provided"}), 400
+    
+    file = request.files['wallpaper']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No file selected"}), 400
+        
+    if file and allowed_file(file.filename):
+        # Generate a safe, unique filename to bypass browser cache
+        filename = secure_filename(file.filename)
+        ext = filename.rsplit('.', 1)[1].lower()
+        new_filename = f"custom_bg_{int(time.time())}.{ext}"
+        filepath = os.path.join(Config.UPLOAD_FOLDER, new_filename)
+        
+        # Cleanup old wallpapers so we don't fill the hard drive
+        for old_file in os.listdir(Config.UPLOAD_FOLDER):
+            if old_file.startswith('custom_bg_'):
+                try: os.remove(os.path.join(Config.UPLOAD_FOLDER, old_file))
+                except: pass
+                
+        file.save(filepath)
+        
+        return jsonify({
+            "status": "success", 
+            "message": "Wallpaper updated successfully! Applying now...", 
+            "url": url_for('static', filename=f'uploads/{new_filename}')
+        })
+        
+    return jsonify({"status": "error", "message": "Invalid file type. Allowed: PNG, JPG, GIF, WEBP"}), 400
 
 @app.route('/api/telegram/status')
 @token_required
@@ -291,35 +333,29 @@ def api_telegram_generate():
     return jsonify({"status": "success", "link": link})
 
 # --- ADAPTIVE DEFENSE ENDPOINTS ---
-@app.route('/api/rules/suggested')
+@app.route('/api/ai/summary')
 @token_required
-def api_get_suggested_rules():
-    rules = get_suggested_rules()
+def api_get_ai_summary():
+    """Fetches the active AI knowledge base for the Settings panel."""
+    rules = get_all_ai_rules()
     data = []
     for r in rules:
         data.append({
             "id": r[0], "pattern": r[1], "attack_type": r[2], 
-            "confidence": r[3], "status": r[4], "created_at": r[5]
+            "confidence": r[3], "created_at": r[4]
         })
     return jsonify(data)
 
-@app.route('/api/rules/approve/<int:rule_id>', methods=['POST'])
+@app.route('/api/ai/delete/<int:rule_id>', methods=['POST'])
 @token_required
-def api_approve_rule(rule_id):
-    from rules import load_custom_rules
-    success = approve_suggested_rule(rule_id)
+def api_delete_ai_rule(rule_id):
+    """Surgically removes a false-positive rule from the AI's memory and hot-reloads the WAF."""
+    success = delete_ai_rule(rule_id)
     if success:
+        from rules import load_custom_rules
         load_custom_rules()
-        return jsonify({"status": "success", "message": "Rule approved and deployed to WAF."})
-    return jsonify({"status": "error", "message": "Failed to approve rule."}), 400
-
-@app.route('/api/rules/reject/<int:rule_id>', methods=['POST'])
-@token_required
-def api_reject_rule(rule_id):
-    success = reject_suggested_rule(rule_id)
-    if success:
-        return jsonify({"status": "success", "message": "Rule rejected and dismissed."})
-    return jsonify({"status": "error", "message": "Failed to reject rule."}), 400
+        return jsonify({"status": "success", "message": "Rule surgically removed from live memory."})
+    return jsonify({"status": "error", "message": "Failed to delete rule."}), 400
 
 # --- MAINTENANCE & REPORTS ---
 @app.route('/api/database/clear', methods=['POST'])
@@ -327,17 +363,15 @@ def api_reject_rule(rule_id):
 def api_clear_db():
     clear_database()
     return jsonify({"status": "success", "message": "Database Logs Cleared Successfully"})
+
 @app.route('/api/ai/clear', methods=['POST'])
 @token_required
 def api_clear_ai():
     clear_ai_knowledge()
-    # We also need to reload the active rules in the WAF engine so it forgets them immediately
     from rules import load_custom_rules
     load_custom_rules()
     return jsonify({"status": "success", "message": "AI Learning Data Cleared Successfully"})
 
-# --- UPDATED: THIS NOW GENERATES THE GLOBAL PDF REPORT ---
-# --- UPDATED: THIS NOW PASSES LOGS TO THE MULTI-PAGE PDF REPORT ---
 @app.route('/api/report/download')
 @token_required
 def api_download_report():
@@ -345,8 +379,6 @@ def api_download_report():
         return jsonify({"error": "ReportLab missing", "message": "Run: pip install reportlab"}), 501
         
     stats = get_stats()
-    
-    # NEW: Fetch logs and pass to the PDF generator
     raw_logs = get_all_logs()
     logs_data = []
     for r in raw_logs:
@@ -363,6 +395,7 @@ def api_download_report():
         as_attachment=True,
         download_name='Sentinel_Global_Report.pdf'
     )
+
 @app.route('/api/report/pdf/<int:log_id>')
 @token_required
 def api_download_pdf_report(log_id):
@@ -382,7 +415,6 @@ def api_download_pdf_report(log_id):
     )
 
 if __name__ == '__main__':
-    # --- UPGRADED: PRODUCTION WSGI SERVER ---
     print("\n=======================================================")
     print("🛡️  SENTINELSHIELD WAF IS ONLINE")
     print("🚀 Running on PRODUCTION WSGI Server (Waitress)")
@@ -390,7 +422,6 @@ if __name__ == '__main__':
     print("=======================================================\n")
     
     if serve:
-        # Waitress handles concurrent traffic perfectly
         serve(app, host='0.0.0.0', port=5000, threads=6) 
     else:
         print("⚠️ Waitress not installed. Falling back to development server.")

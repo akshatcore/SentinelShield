@@ -3,6 +3,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
+    // --- NEW: CUSTOM WALLPAPER LOADER ---
+    const savedWallpaper = localStorage.getItem('sentinel_wallpaper');
+    if(savedWallpaper) {
+        document.body.style.backgroundImage = `url('${savedWallpaper}')`;
+    }
+
     // --- SESSION TIMER LOGIC ---
     const timerElement = document.getElementById('session-timer');
     if (timerElement) {
@@ -52,10 +58,12 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             pageTitle.innerText = titles[target];
 
-            if(target === 'dashboard') loadAdaptiveRules();
             if(target === 'logs') loadFullLogs();
             if(target === 'blacklist') loadBlacklist();
-            if(target === 'settings') loadSettings();
+            if(target === 'settings') {
+                loadSettings();
+                loadAISummary();
+            }
         });
     });
 
@@ -71,11 +79,11 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Requests/sec',
                 data: Array(20).fill(0),
-                borderColor: '#10b981', // Cyber Emerald Green
+                borderColor: '#10b981', 
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 borderWidth: 2,
                 fill: true,
-                stepped: true, // MAGIC SETTING: Makes it rigid 90-degree steps
+                stepped: true, 
                 pointRadius: 0
             }]
         },
@@ -87,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 y: { beginAtZero: true, suggestedMax: 5, grid: { color: 'rgba(255,255,255,0.05)' } },
                 x: { grid: { display: false, drawBorder: false }, ticks: { display: true } }
             },
-            animation: { duration: 0 } // Instant sliding, no rubber-banding
+            animation: { duration: 0 } 
         }
     });
 const ctxAttacks = document.getElementById('attackChart').getContext('2d');
@@ -108,32 +116,13 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         },
         options: {
             responsive: true,
-            // FIX: Set to true and force a rectangular aspect ratio so it fits the card
             maintainAspectRatio: true, 
             aspectRatio: 2.5, 
-            layout: {
-                padding: {
-                    top: 10,
-                    bottom: 35,
-                    left: 10,
-                    right: 10
-                }
-            },
+            layout: { padding: { top: 10, bottom: 35, left: 10, right: 10 } },
             plugins: { 
-                legend: { 
-                    display: true, 
-                    position: 'right', 
-                    labels: {
-                        color: '#cbd5e1', 
-                        font: { size: 11 },
-                        boxWidth: 12
-                    }
-                } 
+                legend: { display: true, position: 'right', labels: { color: '#cbd5e1', font: { size: 11 }, boxWidth: 12 } } 
             },
-            scales: { 
-                x: { display: false }, 
-                y: { display: false } 
-            },
+            scales: { x: { display: false }, y: { display: false } },
             cutout: '70%'
         }
     });
@@ -146,11 +135,11 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             datasets: [{
                 label: 'Attacks',
                 data: [],
-                backgroundColor: 'rgba(16, 185, 129, 0.8)', // Semi-transparent Emerald
-                borderColor: '#10b981', // Solid Emerald border
+                backgroundColor: 'rgba(16, 185, 129, 0.8)', 
+                borderColor: '#10b981', 
                 borderWidth: 1,
-                borderRadius: 6, // Smooth rounded edges
-                barThickness: 12 // Forces the bar to be sleek and thin
+                borderRadius: 6, 
+                barThickness: 12 
             }]
         },
         options: {
@@ -169,6 +158,14 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     let lastTotal = 0;
 
     function fetchStats() {
+        // Run AI watcher in background regardless of what tab we are on
+        checkBackgroundAI();
+
+        // Also live reload the full logs page if it's currently visible
+        if (!document.getElementById('view-logs').classList.contains('hidden')) {
+            loadFullLogs();
+        }
+
         if (document.getElementById('view-dashboard').classList.contains('hidden')) return;
 
         fetch('/api/stats')
@@ -177,7 +174,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 return res.json();
             })
             .then(data => {
-                // FIX 1: If data is completely missing, abort. Do NOT abort if blocked is just 0!
                 if(!data || typeof data.blocked === 'undefined') return; 
 
                 animateValue('blocked-count', parseInt(document.getElementById('blocked-count').innerText) || 0, data.blocked, 1000);
@@ -188,7 +184,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 lastTotal = data.total;
                 const timeStr = new Date().toLocaleTimeString();
                 
-                // Keep the graph ticking forward every single second, even if traffic is 0
                 trafficChart.data.labels.push(timeStr);
                 trafficChart.data.datasets[0].data.push(currentReqs > 0 ? currentReqs : 0);
                 if(trafficChart.data.labels.length > 20) {
@@ -207,7 +202,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                     countryChart.update();
                 }
 
-                // --- THREAT HEATMAP RENDERER ---
                 const heatmapContainer = document.getElementById('heatmap-body');
                 if(data.top_endpoints && heatmapContainer) {
                     heatmapContainer.innerHTML = '';
@@ -278,6 +272,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
 
     // --- PAGE LOADING FUNCTIONS ---
     window.loadFullLogs = function() {
+        const query = document.getElementById('log-search-input').value.toLowerCase();
+        
         fetch('/api/logs')
             .then(res => res.json())
             .then(data => {
@@ -290,8 +286,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                     else if(log.score >= 10) badgeClass = 'badge-high';
                     
                     const safeUrl = log.url.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    
-                    tbody.innerHTML += `
+                    const rowHtml = `
                         <tr>
                             <td>${log.time}</td>
                             <td style="font-family:monospace; color:var(--accent)">${log.ip}</td>
@@ -302,17 +297,18 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                             <td>${log.action}</td>
                             <td><button class="btn-primary" onclick="replayLog(${log.id})" style="font-size:0.7rem; padding: 4px 10px;">Analyze</button></td>
                         </tr>`;
+                        
+                    // If there is an active search, only render rows that match it to prevent flicker
+                    if(query === '' || rowHtml.toLowerCase().includes(query)) {
+                        tbody.innerHTML += rowHtml;
+                    }
                 });
             });
     }
 
     window.filterLogs = function() {
-        const query = document.getElementById('log-search-input').value.toLowerCase();
-        const rows = document.querySelectorAll('#logs-body-full tr');
-        rows.forEach(row => {
-            const text = row.innerText.toLowerCase();
-            row.style.display = text.includes(query) ? '' : 'none';
-        });
+        // Triggering loadFullLogs will re-render with the search filter applied
+        loadFullLogs();
     }
 
     window.loadBlacklist = function() {
@@ -345,6 +341,41 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
 
     window.unbanIP = function(ip) {
         fetch(`/api/unban/${ip}`, { method: 'POST' }).then(() => loadBlacklist());
+    }
+
+    // --- CUSTOM WALLPAPER UPLOAD LOGIC ---
+    window.uploadWallpaper = function() {
+        const input = document.getElementById('wallpaper-upload');
+        if (!input.files[0]) return;
+
+        const formData = new FormData();
+        formData.append('wallpaper', input.files[0]);
+
+        showToast("Uploading wallpaper...");
+
+        fetch('/api/settings/wallpaper', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(data.message);
+                document.body.style.backgroundImage = `url('${data.url}')`;
+                localStorage.setItem('sentinel_wallpaper', data.url);
+            } else {
+                alert("Upload Failed: " + data.message);
+            }
+        })
+        .catch(err => {
+            alert("Error uploading file. The file might be larger than 5MB.");
+        });
+    }
+
+    window.resetWallpaper = function() {
+        document.body.style.backgroundImage = "url('/static/img/cyber-bg.jpg')";
+        localStorage.removeItem('sentinel_wallpaper');
+        showToast("Wallpaper reset to default.");
     }
 
     // --- TELEGRAM UI LOGIC ---
@@ -390,76 +421,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             });
     };
 
-    // --- ADAPTIVE DEFENSE LOGIC ---
-    let lastRulesHash = ""; 
-
-    window.loadAdaptiveRules = function() {
-        fetch('/api/rules/suggested')
-            .then(res => res.json())
-            .then(data => {
-                const currentHash = JSON.stringify(data);
-                if (currentHash === lastRulesHash) return; 
-                lastRulesHash = currentHash;
-
-                const container = document.getElementById('adaptive-rules-body');
-                if (!container) return; 
-                
-                container.innerHTML = '';
-                if (data.length === 0) {
-                    container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted); font-size: 0.9rem;"><i class="fas fa-shield-alt"></i> No new patterns detected. WAF is operating normally.</div>';
-                    return;
-                }
-                
-                data.forEach(rule => {
-                    const safePattern = rule.pattern.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                    
-                    container.innerHTML += `
-                        <div class="glass-panel fade-in" style="padding: 15px; margin-bottom: 10px; border-left: 4px solid var(--warning); background: rgba(0,0,0,0.2);">
-                            <div style="display:flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="font-size: 0.8rem; color: var(--warning); font-weight: bold; margin-bottom: 5px;">
-                                        <i class="fas fa-brain"></i> AI SUGGESTED RULE: ${rule.attack_type}
-                                    </div>
-                                    <div style="font-family: monospace; color: #f87171; background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; word-break: break-all;">
-                                        ${safePattern}
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                                        Confidence: ${rule.confidence}% | First Detected: ${rule.created_at}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 8px; flex-direction: column;">
-                                    <button class="btn-primary" style="background: var(--success); border-color: var(--success); font-size: 0.8rem; padding: 6px 12px;" onclick="approveRule(${rule.id})">
-                                        <i class="fas fa-check"></i> Approve
-                                    </button>
-                                    <button class="btn-danger" style="font-size: 0.8rem; padding: 6px 12px;" onclick="rejectRule(${rule.id})">
-                                        <i class="fas fa-times"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-            });
-    }
-
-    window.approveRule = function(id) {
-        fetch(`/api/rules/approve/${id}`, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => { 
-                showToast(data.message); 
-                loadAdaptiveRules(); 
-            });
-    }
-
-    window.rejectRule = function(id) {
-        fetch(`/api/rules/reject/${id}`, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => { 
-                showToast(data.message); 
-                loadAdaptiveRules(); 
-            });
-    }
-
     window.loadSettings = function() {
         fetch('/api/settings')
             .then(res => res.json())
@@ -467,6 +428,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 document.getElementById('setting-threshold').value = data.block_threshold;
                 document.getElementById('setting-ratelimit').value = data.rate_limit;
                 document.getElementById('setting-duration').value = data.ban_duration;
+                document.getElementById('setting-proxy-url').value = data.reverse_proxy_url || ""; // NEW!
                 
                 document.getElementById('val-threshold').innerText = data.block_threshold;
                 document.getElementById('val-ratelimit').innerText = data.rate_limit;
@@ -495,7 +457,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         const data = {
             block_threshold: parseInt(document.getElementById('setting-threshold').value),
             rate_limit: parseInt(document.getElementById('setting-ratelimit').value),
-            ban_duration: parseInt(document.getElementById('setting-duration').value)
+            ban_duration: parseInt(document.getElementById('setting-duration').value),
+            reverse_proxy_url: document.getElementById('setting-proxy-url').value // NEW!
         };
         
         fetch('/api/settings', {
@@ -509,30 +472,22 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         });
     };
 
-    // FIX 2: Manually zero out the entire UI instantly when the DB clears!
     window.clearDatabase = function() {
         if(!confirm("Are you sure? This will delete all Logs and Bans.")) return;
         fetch('/api/database/clear', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 showToast(data.message);
-                
-                // Reset Backend Memory
                 lastTotal = 0; 
-                
-                // Reset Top Counter Cards
                 document.getElementById('blocked-count').innerText = "0";
                 document.getElementById('total-count').innerText = "0";
                 document.getElementById('ban-count').innerText = "0";
                 
-                // Clear Tables and Heatmaps
                 const liveLogs = document.getElementById('logs-body-live');
                 if(liveLogs) liveLogs.innerHTML = "";
-                
                 const heatmap = document.getElementById('heatmap-body');
                 if(heatmap) heatmap.innerHTML = "";
                 
-                // Flatten all Chart.js Graphs visually immediately
                 trafficChart.data.labels = Array(20).fill('');
                 trafficChart.data.datasets[0].data = Array(20).fill(0);
                 trafficChart.update();
@@ -646,12 +601,82 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         setTimeout(() => toast.classList.add('hidden'), 3000);
     }
 
-    setInterval(() => {
-        fetchStats();
-        loadAdaptiveRules();
-    }, 1000);
+    // --- AUTONOMOUS AI KNOWLEDGE BASE & NOTIFICATIONS ---
+    let aiRuleCount = -1; // Stores the number of rules so we can detect new ones
 
-    // --- AI KNOWLEDGE MANAGEMENT ---
+    window.checkBackgroundAI = function() {
+        fetch('/api/ai/summary')
+            .then(res => res.json())
+            .then(data => {
+                // If this is the first load, just set the count and do nothing.
+                if (aiRuleCount === -1) {
+                    aiRuleCount = data.length;
+                    return;
+                }
+                
+                // If the count increased, a new rule was autonomously deployed!
+                if (data.length > aiRuleCount) {
+                    const newRule = data[0]; // Assuming API returns order DESC
+                    showToast(`🧠 AI deployed new rule against: ${newRule.attack_type}`);
+                    aiRuleCount = data.length;
+                    
+                    // If the user happens to be looking at the Settings page, refresh the table live
+                    if (!document.getElementById('view-settings').classList.contains('hidden')) {
+                        loadAISummary();
+                    }
+                } else if (data.length < aiRuleCount) {
+                    // Handle case where user deleted a rule
+                    aiRuleCount = data.length;
+                }
+            })
+            .catch(err => {});
+    }
+
+    window.loadAISummary = function() {
+        fetch('/api/ai/summary')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('ai-summary-body');
+                if (!tbody) return;
+                
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted)">The AI has not detected any new patterns yet. Operating on baseline rules.</td></tr>';
+                    return;
+                }
+                
+                data.forEach(rule => {
+                    const safePattern = rule.pattern.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    
+                    tbody.innerHTML += `
+                        <tr style="border-bottom: 1px solid var(--border-subtle); background: rgba(0,0,0,0.2);">
+                            <td style="padding: 12px 20px; font-weight: bold; color: var(--warning);"><i class="fas fa-brain"></i> ${rule.attack_type}</td>
+                            <td style="padding: 12px 20px; font-family: monospace; color: #f87171; word-break: break-all;">${safePattern}</td>
+                            <td style="padding: 12px 20px; font-size: 0.85rem; color: var(--text-muted);">${rule.created_at}</td>
+                            <td style="padding: 12px 20px; text-align: right;">
+                                <button class="btn-danger" style="font-size: 0.75rem; padding: 4px 8px;" onclick="deleteAIRule(${rule.id})">
+                                    <i class="fas fa-trash"></i> Remove
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            })
+            .catch(err => console.error("Error loading AI Summary:", err));
+    }
+
+    window.deleteAIRule = function(id) {
+        if(!confirm("Are you sure you want to remove this rule? If this was a valid attack, the AI will just re-learn it later.")) return;
+        
+        fetch(`/api/ai/delete/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { 
+                showToast(data.message); 
+                loadAISummary(); 
+            });
+    }
+
+    // --- AI KNOWLEDGE WIPE ---
     window.clearAIKnowledge = function() {
         if(confirm("⚠️ WARNING: This will permanently delete all dynamically learned Regex rules and wipe the AI's memory. The WAF will revert to its baseline configuration. Are you sure?")) {
             fetch('/api/ai/clear', {
@@ -673,6 +698,11 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         }
     };
     
+    // START LIVE DATA LOOP
+    setInterval(() => {
+        fetchStats();
+    }, 1000);
+
+    // INITIAL LOAD
     fetchStats();
-    loadAdaptiveRules(); 
 });

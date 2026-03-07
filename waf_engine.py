@@ -87,7 +87,7 @@ class WAF:
             if not content or not isinstance(content, str):
                 continue
                 
-            for attack_type, regex_list in PATTERNS.items():
+            for attack_type, regex_list in list(PATTERNS.items()):
                 for pattern in regex_list:
                     if pattern.search(content):
                         print(f"⚠️ REGEX MATCHED: {attack_type} -> Notifying AI Brain!", flush=True)
