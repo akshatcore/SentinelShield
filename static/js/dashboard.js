@@ -3,10 +3,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const sections = document.querySelectorAll('.view-section');
     const pageTitle = document.getElementById('page-title');
 
-    // --- NEW: CUSTOM WALLPAPER LOADER ---
+    // --- DYNAMIC ADAPTIVE THEME ENGINE ---
+    function analyzeImageBrightness(imgUrl, callback) {
+        let img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = imgUrl;
+        img.onload = function() {
+            let canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            let ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            let imageData = ctx.getImageData(0,0, canvas.width, canvas.height);
+            let data = imageData.data;
+            let r,g,b, avg;
+            let colorSum = 0;
+
+            for(let x = 0, len = data.length; x < len; x+=4) {
+                r = data[x];
+                g = data[x+1];
+                b = data[x+2];
+                // HSP formula for perceived brightness
+                avg = Math.floor(Math.sqrt((r*r*.299) + (g*g*.587) + (b*b*.114)));
+                colorSum += avg;
+            }
+            
+            let brightness = Math.floor(colorSum / (img.width * img.height));
+            callback(brightness);
+        }
+    }
+
+    function applyTheme(imageUrl) {
+        document.body.style.backgroundImage = `url('${imageUrl}')`;
+        
+        analyzeImageBrightness(imageUrl, function(brightness) {
+            // If brightness is > 127, it's a light image. 
+            // We use 140 to lean slightly towards keeping it dark unless it's genuinely bright.
+            if (brightness > 140) {
+                document.body.classList.add('theme-light');
+                updateChartThemes('#475569', 'rgba(0, 0, 0, 0.05)', '#ffffff');
+            } else {
+                document.body.classList.remove('theme-light');
+                updateChartThemes('#cbd5e1', 'rgba(255, 255, 255, 0.05)', '#0f172a');
+            }
+        });
+    }
+
+    function updateChartThemes(textColor, gridColor, pieBorderColor) {
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+
+        if (trafficChart) {
+            trafficChart.options.scales.x.ticks.color = textColor;
+            trafficChart.options.scales.y.ticks.color = textColor;
+            trafficChart.options.scales.y.grid.color = gridColor;
+            trafficChart.update();
+        }
+        if (attackChart) {
+            attackChart.options.plugins.legend.labels.color = textColor;
+            attackChart.data.datasets[0].borderColor = pieBorderColor;
+            attackChart.update();
+        }
+        if (countryChart) {
+            countryChart.options.scales.x.ticks.color = textColor;
+            countryChart.options.scales.y.ticks.color = textColor;
+            countryChart.options.scales.x.grid.color = gridColor;
+            countryChart.update();
+        }
+    }
+
+    // --- INITIALIZE WALLPAPER & THEME ---
     const savedWallpaper = localStorage.getItem('sentinel_wallpaper');
     if(savedWallpaper) {
-        document.body.style.backgroundImage = `url('${savedWallpaper}')`;
+        applyTheme(savedWallpaper);
+    } else {
+        // Apply theme to the default background
+        applyTheme('/static/background.jpeg'); 
     }
 
     // --- SESSION TIMER LOGIC ---
@@ -67,11 +140,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // --- CHARTS CONFIG ---
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    // --- CHARTS INITIALIZATION ---
+    // (Defaults will be overridden by the Theme Engine instantly on load)
+    Chart.defaults.color = '#cbd5e1'; 
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)'; 
 
-   const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
+    const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(ctxTraffic, {
         type: 'line',
         data: {
@@ -79,8 +153,8 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Requests/sec',
                 data: Array(20).fill(0),
-                borderColor: '#10b981', 
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: '#2563eb', 
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
                 borderWidth: 2,
                 fill: true,
                 stepped: true, 
@@ -92,13 +166,14 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { 
-                y: { beginAtZero: true, suggestedMax: 5, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { beginAtZero: true, suggestedMax: 5 },
                 x: { grid: { display: false, drawBorder: false }, ticks: { display: true } }
             },
             animation: { duration: 0 } 
         }
     });
-const ctxAttacks = document.getElementById('attackChart').getContext('2d');
+
+    const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     const attackChart = new Chart(ctxAttacks, {
         type: 'doughnut',
         data: {
@@ -107,7 +182,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 label: 'Events',
                 data: [],
                 backgroundColor: [
-                    '#ef4444', '#f59e0b', '#8b5cf6', '#3b82f6', '#10b981', '#ec4899', '#14b8a6'
+                    '#dc2626', '#d97706', '#7c3aed', '#2563eb', '#059669', '#db2777', '#0d9488'
                 ],
                 borderColor: '#0f172a',
                 borderWidth: 2,
@@ -120,14 +195,14 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             aspectRatio: 2.5, 
             layout: { padding: { top: 10, bottom: 35, left: 10, right: 10 } },
             plugins: { 
-                legend: { display: true, position: 'right', labels: { color: '#cbd5e1', font: { size: 11 }, boxWidth: 12 } } 
+                legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } 
             },
             scales: { x: { display: false }, y: { display: false } },
             cutout: '70%'
         }
     });
 
-  const ctxCountry = document.getElementById('countryChart').getContext('2d');
+    const ctxCountry = document.getElementById('countryChart').getContext('2d');
     const countryChart = new Chart(ctxCountry, {
         type: 'bar',
         data: {
@@ -135,8 +210,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             datasets: [{
                 label: 'Attacks',
                 data: [],
-                backgroundColor: 'rgba(16, 185, 129, 0.8)', 
-                borderColor: '#10b981', 
+                backgroundColor: 'rgba(5, 150, 105, 0.8)', 
+                borderColor: '#059669', 
                 borderWidth: 1,
                 borderRadius: 6, 
                 barThickness: 12 
@@ -148,7 +223,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { 
-                x: { grid: { color: 'rgba(255,255,255,0.05)' } }, 
                 y: { grid: { display: false } } 
             }
         }
@@ -158,10 +232,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     let lastTotal = 0;
 
     function fetchStats() {
-        // Run AI watcher in background regardless of what tab we are on
         checkBackgroundAI();
 
-        // Also live reload the full logs page if it's currently visible
         if (!document.getElementById('view-logs').classList.contains('hidden')) {
             loadFullLogs();
         }
@@ -215,11 +287,11 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                         heatmapContainer.innerHTML += `
                             <div style="margin-bottom: 12px;">
                                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-                                    <span style="font-family: monospace; color: #cbd5e1;">${safeUrl}</span>
+                                    <span style="font-family: monospace; color: var(--text-main); font-weight: 500;">${safeUrl}</span>
                                     <span style="color: var(--danger); font-weight: bold;">${count} hits</span>
                                 </div>
-                                <div style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; height: 8px;">
-                                    <div style="width: ${percentage}%; background: var(--danger); height: 100%; box-shadow: 0 0 8px var(--danger);"></div>
+                                <div style="width: 100%; background: var(--border-subtle); border-radius: 4px; overflow: hidden; height: 8px;">
+                                    <div style="width: ${percentage}%; background: var(--danger); height: 100%; box-shadow: 0 0 8px rgba(220,38,38,0.4);"></div>
                                 </div>
                             </div>
                         `;
@@ -236,7 +308,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                         
                         tbody.innerHTML += `
                             <tr>
-                                <td><span style="color:var(--primary)">${log[1].split(' ')[1]}</span></td>
+                                <td><span style="color:var(--primary); font-weight: 600;">${log[1].split(' ')[1]}</span></td>
                                 <td>${log[2]}</td>
                                 <td>${flag} ${log[10] || 'UNK'}</td>
                                 <td>${log[7]}</td>
@@ -289,16 +361,15 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                     const rowHtml = `
                         <tr>
                             <td>${log.time}</td>
-                            <td style="font-family:monospace; color:var(--accent)">${log.ip}</td>
+                            <td style="font-family:monospace; color:var(--accent); font-weight:600;">${log.ip}</td>
                             <td>${log.method}</td>
-                            <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.8">${safeUrl}</td>
+                            <td style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${safeUrl}</td>
                             <td>${log.attack}</td>
                             <td><span class="badge ${badgeClass}">Score: ${log.score}</span></td>
                             <td>${log.action}</td>
                             <td><button class="btn-primary" onclick="replayLog(${log.id})" style="font-size:0.7rem; padding: 4px 10px;">Analyze</button></td>
                         </tr>`;
                         
-                    // If there is an active search, only render rows that match it to prevent flicker
                     if(query === '' || rowHtml.toLowerCase().includes(query)) {
                         tbody.innerHTML += rowHtml;
                     }
@@ -307,7 +378,6 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     }
 
     window.filterLogs = function() {
-        // Triggering loadFullLogs will re-render with the search filter applied
         loadFullLogs();
     }
 
@@ -325,7 +395,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 data.forEach(ban => {
                     tbody.innerHTML += `
                         <tr>
-                            <td style="font-family:monospace; color:var(--danger)">${ban.ip}</td>
+                            <td style="font-family:monospace; color:var(--danger); font-weight: 600;">${ban.ip}</td>
                             <td>${ban.banned_at}</td>
                             <td>${ban.expires}</td>
                             <td>${ban.reason}</td>
@@ -361,8 +431,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
         .then(data => {
             if (data.status === 'success') {
                 showToast(data.message);
-                document.body.style.backgroundImage = `url('${data.url}')`;
                 localStorage.setItem('sentinel_wallpaper', data.url);
+                applyTheme(data.url); // Let the adaptive engine handle it!
             } else {
                 alert("Upload Failed: " + data.message);
             }
@@ -373,8 +443,8 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     }
 
     window.resetWallpaper = function() {
-        document.body.style.backgroundImage = "url('/static/img/cyber-bg.jpg')";
         localStorage.removeItem('sentinel_wallpaper');
+        applyTheme('/static/background.jpeg');
         showToast("Wallpaper reset to default.");
     }
 
@@ -389,11 +459,11 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 if(!badge) return;
 
                 if (data.status === 'linked') {
-                    badge.innerHTML = '<span class="badge" style="background:var(--success); color:black; font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
+                    badge.innerHTML = '<span class="badge" style="background:rgba(5, 150, 105, 0.1); color:var(--success); border:1px solid rgba(5,150,105,0.3); font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
                     btn.style.display = 'none';
                     if(container) container.classList.add('hidden');
                 } else if (data.status === 'pending') {
-                    badge.innerHTML = '<span class="badge" style="background:var(--warning); color:black; font-weight:bold;"><i class="fas fa-clock"></i> Pending Verification...</span>';
+                    badge.innerHTML = '<span class="badge" style="background:rgba(217, 119, 6, 0.1); color:var(--warning); border:1px solid rgba(217,119,6,0.3); font-weight:bold;"><i class="fas fa-clock"></i> Pending Verification...</span>';
                     btn.style.display = 'none';
                     if(container) container.classList.remove('hidden');
                     setTimeout(checkTelegramStatus, 3000);
@@ -428,7 +498,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 document.getElementById('setting-threshold').value = data.block_threshold;
                 document.getElementById('setting-ratelimit').value = data.rate_limit;
                 document.getElementById('setting-duration').value = data.ban_duration;
-                document.getElementById('setting-proxy-url').value = data.reverse_proxy_url || ""; // NEW!
+                document.getElementById('setting-proxy-url').value = data.reverse_proxy_url || "";
                 
                 document.getElementById('val-threshold').innerText = data.block_threshold;
                 document.getElementById('val-ratelimit').innerText = data.rate_limit;
@@ -458,7 +528,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
             block_threshold: parseInt(document.getElementById('setting-threshold').value),
             rate_limit: parseInt(document.getElementById('setting-ratelimit').value),
             ban_duration: parseInt(document.getElementById('setting-duration').value),
-            reverse_proxy_url: document.getElementById('setting-proxy-url').value // NEW!
+            reverse_proxy_url: document.getElementById('setting-proxy-url').value
         };
         
         fetch('/api/settings', {
@@ -514,7 +584,7 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                     const cleanHeaders = log.headers.replace(/'/g, '"');
                     const headersObj = JSON.parse(cleanHeaders);
                     for (const [key, value] of Object.entries(headersObj)) {
-                        headersHtml += `<div><span style="color:var(--primary)">${key}:</span> ${value}</div>`;
+                        headersHtml += `<div><span style="color:var(--primary); font-weight:600;">${key}:</span> ${value}</div>`;
                     }
                 } catch(e) { headersHtml = log.headers; }
 
@@ -524,28 +594,28 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                 body.innerHTML = `
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
                         <div>
-                            <div style="font-size:0.8rem; color:var(--text-muted)">SOURCE</div>
-                            <div style="font-size:1.1rem; font-weight:bold">${log.ip_address} ${getFlag(log.country)}</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">SOURCE</div>
+                            <div style="font-size:1.1rem; font-weight:bold; color:var(--text-main);">${log.ip_address} ${getFlag(log.country)}</div>
                         </div>
                         <div>
-                            <div style="font-size:0.8rem; color:var(--text-muted)">THREAT VECTOR</div>
-                            <div style="font-size:1.1rem; color:var(--danger)">${log.attack_type} (Score: ${log.risk_score})</div>
+                            <div style="font-size:0.8rem; color:var(--text-muted); font-weight:600;">THREAT VECTOR</div>
+                            <div style="font-size:1.1rem; font-weight:bold; color:var(--danger)">${log.attack_type} (Score: ${log.risk_score})</div>
                         </div>
                     </div>
 
-                    <div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:8px; border:1px solid var(--border-subtle); margin-bottom:15px;">
-                        <div style="font-weight:bold; color:#3b82f6; margin-bottom:10px;">HTTP REQUEST</div>
-                        <div style="font-family:monospace; margin-bottom:10px;">${log.method} ${log.url.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-                        <div style="font-family:monospace; font-size:0.85rem; color:#cbd5e1; max-height:100px; overflow-y:auto;">${headersHtml}</div>
+                    <div style="background:var(--bg-glass); padding:15px; border-radius:8px; border:1px solid var(--border-subtle); margin-bottom:15px;">
+                        <div style="font-weight:bold; color:var(--primary); margin-bottom:10px;">HTTP REQUEST</div>
+                        <div style="font-family:monospace; margin-bottom:10px; color:var(--text-main); font-weight:600;">${log.method} ${log.url.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                        <div style="font-family:monospace; font-size:0.85rem; color:var(--text-muted); max-height:100px; overflow-y:auto;">${headersHtml}</div>
                     </div>
 
-                    <div style="background:rgba(239,68,68,0.1); padding:15px; border-radius:8px; border:1px solid var(--danger); margin-bottom:20px;">
+                    <div style="background:rgba(220,38,38,0.05); padding:15px; border-radius:8px; border:1px solid rgba(220,38,38,0.2); margin-bottom:20px;">
                         <div style="font-weight:bold; color:var(--danger); margin-bottom:10px;">DETECTED PAYLOAD</div>
-                        <pre style="color:#fca5a5; white-space:pre-wrap; margin:0; font-size:0.9rem;">${safePayload}</pre>
+                        <pre style="color:var(--danger); white-space:pre-wrap; margin:0; font-size:0.9rem; font-weight:500;">${safePayload}</pre>
                     </div>
 
                     <div style="display:flex; gap:10px; justify-content:flex-end;">
-                        <button class="btn-primary" onclick="window.location.href='/api/report/pdf/${log.id}'" style="background: var(--warning); border-color: var(--warning);">
+                        <button class="btn-primary" onclick="window.location.href='/api/report/pdf/${log.id}'" style="background: var(--warning); color: white;">
                             <i class="fas fa-file-pdf"></i> Download PDF
                         </button>
                         
@@ -602,30 +672,26 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
     }
 
     // --- AUTONOMOUS AI KNOWLEDGE BASE & NOTIFICATIONS ---
-    let aiRuleCount = -1; // Stores the number of rules so we can detect new ones
+    let aiRuleCount = -1;
 
     window.checkBackgroundAI = function() {
         fetch('/api/ai/summary')
             .then(res => res.json())
             .then(data => {
-                // If this is the first load, just set the count and do nothing.
                 if (aiRuleCount === -1) {
                     aiRuleCount = data.length;
                     return;
                 }
                 
-                // If the count increased, a new rule was autonomously deployed!
                 if (data.length > aiRuleCount) {
-                    const newRule = data[0]; // Assuming API returns order DESC
+                    const newRule = data[0];
                     showToast(`🧠 AI deployed new rule against: ${newRule.attack_type}`);
                     aiRuleCount = data.length;
                     
-                    // If the user happens to be looking at the Settings page, refresh the table live
                     if (!document.getElementById('view-settings').classList.contains('hidden')) {
                         loadAISummary();
                     }
                 } else if (data.length < aiRuleCount) {
-                    // Handle case where user deleted a rule
                     aiRuleCount = data.length;
                 }
             })
@@ -649,9 +715,9 @@ const ctxAttacks = document.getElementById('attackChart').getContext('2d');
                     const safePattern = rule.pattern.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     
                     tbody.innerHTML += `
-                        <tr style="border-bottom: 1px solid var(--border-subtle); background: rgba(0,0,0,0.2);">
+                        <tr style="border-bottom: 1px solid var(--border-subtle); background: var(--bg-glass);">
                             <td style="padding: 12px 20px; font-weight: bold; color: var(--warning);"><i class="fas fa-brain"></i> ${rule.attack_type}</td>
-                            <td style="padding: 12px 20px; font-family: monospace; color: #f87171; word-break: break-all;">${safePattern}</td>
+                            <td style="padding: 12px 20px; font-family: monospace; color: var(--danger); font-weight: 500; word-break: break-all;">${safePattern}</td>
                             <td style="padding: 12px 20px; font-size: 0.85rem; color: var(--text-muted);">${rule.created_at}</td>
                             <td style="padding: 12px 20px; text-align: right;">
                                 <button class="btn-danger" style="font-size: 0.75rem; padding: 4px 8px;" onclick="deleteAIRule(${rule.id})">

@@ -1,34 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --bg-core: #0f172a;
-    /* Deep, translucent glass backgrounds */
-    --bg-glass: rgba(10, 15, 30, 0.45);
-    --bg-glass-hover: rgba(15, 23, 42, 0.65);
+    --bg-core: #f8fafc;
     
-    /* High-end glass highlights */
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-highlight: rgba(255, 255, 255, 0.15);
+    /* Light, translucent glass backgrounds */
+    --bg-glass: rgba(255, 255, 255, 0.65);
+    --bg-glass-hover: rgba(255, 255, 255, 0.85);
     
-    --primary: #3b82f6; /* Neon Blue */
-    --accent: #8b5cf6;  /* Violet */
-    --danger: #ef4444;  /* Red */
-    --success: #10b981; /* Emerald */
-    --warning: #f59e0b; /* Amber */
+    /* Subtle dark borders for light theme */
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-highlight: rgba(255, 255, 255, 0.6);
     
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
+    /* Vibrant UI Colors adjusted for light theme */
+    --primary: #2563eb; /* Strong Blue */
+    --accent: #7c3aed;  /* Violet */
+    --danger: #dc2626;  /* Crimson Red */
+    --success: #059669; /* Deep Emerald */
+    --warning: #d97706; /* Dark Amber */
     
-    --glow-primary: 0 0 20px rgba(59, 130, 246, 0.4);
-    --glow-danger: 0 0 20px rgba(239, 68, 68, 0.4);
-    --glow-warning: 0 0 20px rgba(245, 158, 11, 0.4);
+    /* Text Colors inverted for light theme */
+    --text-main: #0f172a; /* Near Black */
+    --text-muted: #475569; /* Slate Gray */
+    
+    /* Softer Glows for Light Theme */
+    --glow-primary: 0 4px 15px rgba(37, 99, 235, 0.3);
+    --glow-danger: 0 4px 15px rgba(220, 38, 38, 0.3);
+    --glow-warning: 0 4px 15px rgba(217, 119, 6, 0.3);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
 body {
     background-color: var(--bg-core);
-    /* Load the background image from the static folder */
     background-image: url('/static/background.jpeg'); 
     background-size: cover;
     background-position: center;
@@ -39,41 +42,38 @@ body {
     overflow: hidden;
     position: relative;
     z-index: 1;
-    /* NEW: Smooth transition when the wallpaper is changed */
     transition: background-image 1s ease-in-out;
 }
 
-/* This creates a smart, dark overlay over ANY background image 
-   so the dashboard text remains 100% readable, even on bright custom wallpapers! */
+/* Light Theme: Replaced the dark gradient with a very soft, light frost overlay 
+   to ensure dark text is readable over any wallpaper */
 body::before {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    /* Fortified the overlay slightly to handle ultra-bright custom wallpapers */
-    background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 100%);
+    background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%);
     z-index: -1;
 }
 
-/* --- Cyberpunk Scrollbars --- */
+/* --- Clean Scrollbars --- */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
-::-webkit-scrollbar-thumb { background: rgba(59, 130, 246, 0.4); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); box-shadow: var(--glow-primary); }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(37, 99, 235, 0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-/* --- True Glassmorphism Engine --- */
+/* --- Light Glassmorphism Engine --- */
 .glass-panel {
-    /* Using !important to override inline HTML colors and force the glass effect */
     background: var(--bg-glass) !important; 
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-subtle);
     
-    /* Adds the premium "frosted glass reflection" on the top and left edges */
+    /* White highlight on top/left for the frosted glass reflection */
     border-top: 1px solid var(--border-highlight);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--border-highlight);
     
-    /* Deep shadow to lift the panel off the background */
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    /* Soft, diffuse shadow instead of a harsh dark one */
+    box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.05);
     border-radius: 16px;
 }
 
@@ -86,7 +86,6 @@ body::before {
     flex-direction: column;
     padding: 24px;
     z-index: 10;
-    /* Remove rounded corners on the left edge so it sits flush */
     border-radius: 0 16px 16px 0; 
 }
 
@@ -98,7 +97,7 @@ body::before {
     font-weight: 700;
     color: var(--text-main);
     margin-bottom: 48px;
-    text-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+    /* Removed heavy text-shadow for a cleaner light look */
 }
 
 .nav-item {
@@ -111,19 +110,19 @@ body::before {
     display: flex;
     align-items: center;
     gap: 12px;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .nav-item:hover {
     background: var(--bg-glass-hover);
-    color: var(--text-main);
+    color: var(--primary);
 }
 
 .nav-item.active {
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(37, 99, 235, 0.1);
     color: var(--primary);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    box-shadow: inset 0 0 20px rgba(59,130,246,0.1), var(--glow-primary);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    box-shadow: inset 0 0 10px rgba(37, 99, 235, 0.05);
 }
 
 /* --- Main Content --- */
@@ -143,22 +142,22 @@ header {
 
 h1 { 
     font-size: 1.8rem; 
-    font-weight: 600; 
+    font-weight: 700; 
     letter-spacing: -0.5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    color: var(--text-main);
 }
 
 .status-badge {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(5, 150, 105, 0.1);
     color: var(--success);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(5, 150, 105, 0.2);
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 0.85rem;
+    font-weight: 600;
     display: flex;
     align-items: center;
     gap: 8px;
-    box-shadow: inset 0 0 10px rgba(16,185,129,0.1);
     backdrop-filter: blur(4px);
 }
 
@@ -172,9 +171,9 @@ h1 {
 }
 
 @keyframes pulse-green {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); }
-    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
 }
 
 .fa-brain.pulse-dot {
@@ -184,12 +183,12 @@ h1 {
 }
 
 @keyframes pulse-amber {
-    0% { transform: scale(0.95); text-shadow: 0 0 0 rgba(245, 158, 11, 0.8); }
-    50% { transform: scale(1.1); text-shadow: 0 0 15px rgba(245, 158, 11, 0.9); }
-    100% { transform: scale(0.95); text-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+    0% { transform: scale(0.95); }
+    50% { transform: scale(1.1); text-shadow: 0 0 10px rgba(217, 119, 6, 0.5); }
+    100% { transform: scale(0.95); }
 }
 
-/* --- Dashboard Grid (Top Accents) --- */
+/* --- Dashboard Grid --- */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -207,13 +206,13 @@ h1 {
 
 .stat-card:hover { 
     transform: translateY(-4px); 
-    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+    box-shadow: 0 15px 35px 0 rgba(0, 0, 0, 0.1);
 }
 
 .stat-label { 
     color: var(--text-muted); 
     font-size: 0.875rem; 
-    font-weight: 600; 
+    font-weight: 700; 
     text-transform: uppercase; 
     letter-spacing: 0.05em; 
     margin-bottom: 8px; 
@@ -221,9 +220,8 @@ h1 {
 
 .stat-value { 
     font-size: 2.8rem; 
-    font-weight: 700; 
-    color: white; 
-    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    font-weight: 800; 
+    color: var(--text-main); 
 }
 
 .stat-icon {
@@ -232,12 +230,12 @@ h1 {
     top: 50%;
     transform: translateY(-50%);
     font-size: 3.5rem;
-    opacity: 0.15;
+    opacity: 0.1;
 }
 
-.glow-red { border-top: 2px solid var(--danger); box-shadow: inset 0 20px 40px -20px rgba(239, 68, 68, 0.25); }
-.glow-blue { border-top: 2px solid var(--primary); box-shadow: inset 0 20px 40px -20px rgba(59, 130, 246, 0.25); }
-.glow-orange { border-top: 2px solid var(--warning); box-shadow: inset 0 20px 40px -20px rgba(245, 158, 11, 0.25); }
+.glow-red { border-top: 3px solid var(--danger); }
+.glow-blue { border-top: 3px solid var(--primary); }
+.glow-orange { border-top: 3px solid var(--warning); }
 
 /* --- Charts Section --- */
 .chart-card {
@@ -248,7 +246,7 @@ h1 {
 }
 
 .chart-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
-.chart-title { font-size: 1.1rem; font-weight: 600; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+.chart-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
 
 /* --- Tables --- */
 .table-container {
@@ -259,21 +257,23 @@ h1 {
 
 table { width: 100%; border-collapse: collapse; }
 th {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.03);
     text-align: left;
     padding: 16px 24px;
     color: var(--text-muted);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--border-subtle);
 }
 td {
     padding: 16px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
 }
-tr:hover td { background: rgba(255, 255, 255, 0.05); }
+tr:hover td { background: rgba(0, 0, 0, 0.02); }
 
 .badge {
     padding: 4px 10px;
@@ -281,23 +281,21 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
-.badge-crit { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.5); }
-.badge-high { background: rgba(245, 158, 11, 0.25); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.5); }
-.badge-low { background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5); }
+.badge-crit { background: rgba(220, 38, 38, 0.1); color: var(--danger); border: 1px solid rgba(220, 38, 38, 0.3); }
+.badge-high { background: rgba(217, 119, 6, 0.1); color: var(--warning); border: 1px solid rgba(217, 119, 6, 0.3); }
+.badge-low { background: rgba(37, 99, 235, 0.1); color: var(--primary); border: 1px solid rgba(37, 99, 235, 0.3); }
 
 /* --- Settings Sliders --- */
 .setting-item { margin-bottom: 30px; }
-.setting-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+.setting-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: 600;}
 .range-slider {
     -webkit-appearance: none;
     width: 100%;
     height: 6px;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.1);
     border-radius: 5px;
     outline: none;
-    border: 1px solid var(--border-subtle);
 }
 .range-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -315,27 +313,25 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
 .btn-primary {
     background: var(--primary);
     color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: none;
     padding: 10px 20px;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     box-shadow: var(--glow-primary);
     transition: all 0.3s;
-    backdrop-filter: blur(4px);
 }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 25px rgba(59, 130, 246, 0.6); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); }
 
 .btn-danger {
-    background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(220, 38, 38, 0.3);
     padding: 6px 12px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     transition: 0.3s;
-    backdrop-filter: blur(4px);
 }
 .btn-danger:hover { background: var(--danger); color: white; box-shadow: var(--glow-danger); }
 
@@ -343,7 +339,7 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.4); /* Lightened backdrop */
     backdrop-filter: blur(10px);
     display: flex;
     justify-content: center;
@@ -351,10 +347,9 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
     z-index: 1000;
 }
 .modal-content {
-    background: rgba(15, 23, 42, 0.8) !important; 
-    border-top: 1px solid var(--border-highlight);
-    border-left: 1px solid var(--border-highlight);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5), var(--glow-primary);
+    background: rgba(255, 255, 255, 0.95) !important; /* White Modal */
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
     border-radius: 16px;
     padding: 30px;
     max-height: 90vh;
@@ -366,7 +361,6 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
 }
 .close-modal:hover {
     color: var(--danger);
-    text-shadow: var(--glow-danger);
     transform: scale(1.2) rotate(90deg);
 }
 
@@ -374,16 +368,16 @@ tr:hover td { background: rgba(255, 255, 255, 0.05); }
 .toast {
     position: fixed;
     bottom: 30px; right: 30px;
-    background: rgba(16, 185, 129, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);
-    color: #000;
+    color: var(--success);
+    border-left: 4px solid var(--success);
     padding: 16px 24px;
     border-radius: 8px;
-    font-weight: bold;
-    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.5);
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     z-index: 9999;
     transition: opacity 0.4s, transform 0.4s;
-    border: 1px solid rgba(255,255,255,0.4);
 }
 
 /* Utilities */
