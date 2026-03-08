@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify, render_template, abort, send_file, make_response, redirect, url_for, Response
 from werkzeug.utils import secure_filename
 from waf_engine import waf
-from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, clear_ai_knowledge, get_all_ai_rules, delete_ai_rule
+from database import init_db, get_stats, unban_ip, get_all_logs, get_all_bans, clear_database, export_logs_csv, get_log_by_id, verify_admin, set_telegram_sync_token, link_telegram_account, get_telegram_status, clear_ai_knowledge, get_all_ai_rules, delete_ai_rule, disconnect_telegram_account
 from config import Config
 import json
 import io
@@ -331,6 +331,15 @@ def api_telegram_generate():
     bot_username = "SentinelShieldAlerts_bot" 
     link = f"https://t.me/{bot_username}?start={sync_token}"
     return jsonify({"status": "success", "link": link})
+
+@app.route('/api/telegram/disconnect', methods=['POST'])
+@token_required
+def api_telegram_disconnect():
+    """Wipes the Telegram Chat ID and Sync Token from the database."""
+    success = disconnect_telegram_account(request.current_user)
+    if success:
+        return jsonify({"status": "success", "message": "Telegram disconnected successfully!"})
+    return jsonify({"status": "error", "message": "Failed to disconnect Telegram."}), 400
 
 # --- ADAPTIVE DEFENSE ENDPOINTS ---
 @app.route('/api/ai/summary')

@@ -4,17 +4,24 @@ import re
 # Store the original baseline rules so we can reset and reload safely without duplicating
 BASE_PATTERNS = {
     "SQL Injection": [
-        re.compile(r"(\%27)|(\')|(\-\-)|(\%23)|(#)", re.IGNORECASE),
-        re.compile(r"((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))", re.IGNORECASE),
-        re.compile(r"\w*((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))", re.IGNORECASE),
-        re.compile(r"exec(\s|\+)+(s|x)p\w+", re.IGNORECASE),
-        re.compile(r"UNION(\s|\+)*SELECT", re.IGNORECASE)
+        # Catch classic ' OR 1=1 or ' AND '1'='1 (Allows normal quotes in text, but catches boolean logic)
+        re.compile(r"(?i)(\%27|')\s*(OR|AND)\s*(\%27|'|\d)"),
+        # Catch Tautologies like '='
+        re.compile(r"(?i)(\%27|')\s*=\s*(\%27|')"),
+        # Catch UNION SELECT combinations
+        re.compile(r"(?i)UNION(\s|\+)+(ALL(\s|\+)+)?SELECT"),
+        # Catch dangerous stored procedures (e.g., exec xp_cmdshell)
+        re.compile(r"(?i)EXEC(\s|\+)+(xp_|sp_)\w+"),
+        # Catch SQL inline comments used for bypasses (e.g., /*SQL*/ or -- )
+        re.compile(r"(?i)(\-\-\s|\/\*.*?\*\/)")
     ],
     "XSS (Cross-Site Scripting)": [
-        re.compile(r"((\%3C)|<)((\%2F)|\/)*[a-z0-9\%]+((\%3E)|>)", re.IGNORECASE),
-        re.compile(r"((\%3C)|<)((\%69)|i|(\%49))((\%6D)|m|(\%4D))((\%67)|g|(\%47))[^\n]+((\%3E)|>)", re.IGNORECASE),
-        re.compile(r"javascript:", re.IGNORECASE),
-        re.compile(r"onload|onerror|onmouseover", re.IGNORECASE)
+        # Catch highly dangerous executable tags (script, iframe, object, img)
+        re.compile(r"(?i)(%3C|<)\/?(script|iframe|body|svg|math|object|embed|img)(%3E|>|\s)"),
+        # Catch malicious inline JavaScript event handlers
+        re.compile(r"(?i)(onload|onerror|onmouseover|onfocus|onblur)\s*="),
+        # Catch javascript URI schemes
+        re.compile(r"(?i)javascript:")
     ],
     "Command Injection": [
         re.compile(r";\s*(\/|cat|ls|pwd|whoami|netcat|nc)", re.IGNORECASE),
@@ -27,7 +34,7 @@ BASE_PATTERNS = {
         re.compile(r"/etc/passwd", re.IGNORECASE)
     ],
     "Suspicious User-Agent": [
-        # Upgraded to detect modern & professional security scanners
+        # Detect modern & professional security vulnerability scanners
         re.compile(r"(sqlmap|nikto|nmap|curl|python-requests|burpsuite|owasp[\s_-]?zap|zaproxy|masscan|dirbuster|gobuster|wpscan|nuclei|hydra)", re.IGNORECASE)
     ]
 }

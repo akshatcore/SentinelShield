@@ -455,28 +455,36 @@ document.addEventListener('DOMContentLoaded', function() {
         showToast("Wallpaper reset to default.");
     }
 
-    // --- TELEGRAM UI LOGIC ---
+    // --- UPDATED TELEGRAM UI LOGIC ---
     window.checkTelegramStatus = function() {
         fetch('/api/telegram/status')
             .then(res => res.json())
             .then(data => {
                 const badge = document.getElementById('telegram-status-badge');
-                const btn = document.getElementById('btn-telegram-connect');
+                const btnConnect = document.getElementById('btn-telegram-connect');
+                const btnDisconnect = document.getElementById('btn-telegram-disconnect');
                 const container = document.getElementById('telegram-pairing-container');
                 if(!badge) return;
 
                 if (data.status === 'linked') {
                     badge.innerHTML = '<span class="badge" style="background:rgba(5, 150, 105, 0.1); color:var(--success); border:1px solid rgba(5,150,105,0.3); font-weight:bold;"><i class="fas fa-check-circle"></i> Connected</span>';
-                    btn.style.display = 'none';
+                    if(btnConnect) btnConnect.style.display = 'none';
+                    if(btnDisconnect) btnDisconnect.classList.remove('hidden'); 
                     if(container) container.classList.add('hidden');
                 } else if (data.status === 'pending') {
                     badge.innerHTML = '<span class="badge" style="background:rgba(217, 119, 6, 0.1); color:var(--warning); border:1px solid rgba(217,119,6,0.3); font-weight:bold;"><i class="fas fa-clock"></i> Pending Verification...</span>';
-                    btn.style.display = 'none';
+                    if(btnConnect) btnConnect.style.display = 'none';
+                    if(btnDisconnect) btnDisconnect.classList.add('hidden'); 
                     if(container) container.classList.remove('hidden');
                     setTimeout(checkTelegramStatus, 3000);
                 } else {
                     badge.innerHTML = '<span class="badge badge-low"><i class="fas fa-times-circle"></i> Not Connected</span>';
-                    btn.style.display = 'block';
+                    if(btnConnect) {
+                        btnConnect.style.display = 'block';
+                        btnConnect.innerHTML = '<i class="fab fa-telegram-plane"></i> Connect'; 
+                        btnConnect.disabled = false;
+                    }
+                    if(btnDisconnect) btnDisconnect.classList.add('hidden'); 
                     if(container) container.classList.add('hidden');
                 }
             });
@@ -496,6 +504,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     checkTelegramStatus(); 
                 }
             });
+    };
+
+    window.disconnectTelegram = function() {
+        if(!confirm("Are you sure you want to disconnect Telegram? You will no longer receive threat alerts.")) return;
+        
+        fetch('/api/telegram/disconnect', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    showToast(data.message);
+                    checkTelegramStatus(); 
+                } else {
+                    showToast("Error disconnecting: " + data.message);
+                }
+            })
+            .catch(err => console.error("Error disconnecting Telegram:", err));
     };
 
     window.loadSettings = function() {

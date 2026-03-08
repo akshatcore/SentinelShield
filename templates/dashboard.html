@@ -30,7 +30,7 @@
         </div>
 
         <div style="margin-top: auto; padding: 10px; font-size: 0.8rem; color: var(--text-muted); opacity: 0.7;">
-            v3.0.0-gateway<br>Mode: Reverse Proxy
+            v4.0-gateway<br>Mode: Reverse Proxy
         </div>
     </nav>
 
@@ -135,7 +135,12 @@
         <div id="view-logs" class="view-section hidden">
             <div class="glass-panel table-container">
                 <div style="padding: 20px; border-bottom: 1px solid var(--border-subtle); display: flex; gap: 15px; align-items: center;">
-                    <input type="text" id="log-search-input" placeholder="Search IP or Payload..." style="background: rgba(0,0,0,0.05); border: 1px solid var(--border-subtle); padding: 10px 15px; color: var(--text-main); border-radius: 6px; flex: 1; outline: none;">
+                    
+                    <input type="text" id="log-search-input" placeholder="Search IP or Payload..." 
+                        style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); padding: 10px 15px; color: var(--text-main); border-radius: 6px; flex: 1; outline: none; font-family: monospace; transition: all 0.3s ease;" 
+                        onfocus="this.style.borderColor='var(--primary)'; this.style.background='rgba(255, 255, 255, 0.08)';" 
+                        onblur="this.style.borderColor='var(--border-subtle)'; this.style.background='rgba(255, 255, 255, 0.05)';">
+                    
                     <button class="btn-primary" onclick="filterLogs()"><i class="fas fa-search"></i> Filter</button>
                     <button class="btn-primary" onclick="window.location.href='/api/report/download'" style="background: var(--warning); color: white;"><i class="fas fa-file-pdf"></i> Export Global PDF</button>
                 </div>
@@ -243,9 +248,18 @@
                             <div class="setting-row-header">Telegram Threat Alerts</div>
                             <div class="help-text">Receive real-time push notifications.</div>
                             
-                            <div class="upload-group" style="justify-content: space-between; align-items: center;">
-                                <div id="telegram-status-badge"><span class="badge badge-low"><i class="fas fa-spinner fa-spin"></i> Loading...</span></div>
-                                <button class="btn-primary" id="btn-telegram-connect" onclick="generateTelegramLink()" style="background: #0088cc;"><i class="fab fa-telegram-plane"></i> Connect Account</button>
+                            <div class="upload-group" style="justify-content: space-between; align-items: center; gap: 15px;">
+                                <div id="telegram-status-badge" style="flex: 1;">
+                                    <span class="badge badge-low"><i class="fas fa-spinner fa-spin"></i> Loading...</span>
+                                </div>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button class="btn-primary" id="btn-telegram-connect" onclick="generateTelegramLink()" style="background: #0088cc; border: none;">
+                                        <i class="fab fa-telegram-plane"></i> Connect
+                                    </button>
+                                    <button class="btn-danger hidden" id="btn-telegram-disconnect" onclick="disconnectTelegram()" style="background: rgba(220, 38, 38, 0.1); color: var(--danger); border: 1px solid rgba(220, 38, 38, 0.3);">
+                                        <i class="fas fa-unlink"></i> Disconnect
+                                    </button>
+                                </div>
                             </div>
                             
                             <div id="telegram-pairing-container" class="hidden" style="margin-top: 15px; background: rgba(37, 99, 235, 0.05); border: 1px solid var(--primary); padding: 16px; border-radius: 8px;">

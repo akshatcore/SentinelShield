@@ -137,6 +137,17 @@ def get_all_telegram_chat_ids():
     conn.close()
     return ids
 
+# THIS IS THE FUNCTION IT WAS COMPLAINING ABOUT MISSING
+def disconnect_telegram_account(username):
+    """Wipes the Telegram pairing data for the given admin user."""
+    conn = sqlite3.connect(Config.DB_NAME)
+    c = conn.cursor()
+    c.execute("UPDATE admin_users SET telegram_chat_id = NULL, telegram_sync_token = NULL WHERE username = ?", (username,))
+    success = conn.total_changes > 0
+    conn.commit()
+    conn.close()
+    return success
+
 # --- DETECT LOCAL IPs ---
 def get_country_from_ip(ip):
     if ip == '127.0.0.1' or ip == 'localhost' or ip.startswith('192.168.') or ip.startswith('10.'):
@@ -328,7 +339,6 @@ def get_stats():
         "logs": recent_logs
     }
 
-# --- MAINTENANCE ---
 # --- MAINTENANCE ---
 def clear_database():
     conn = sqlite3.connect(Config.DB_NAME)
