@@ -82,3 +82,96 @@ It:
 ```bash
 git clone https://github.com/akshatcore/SentinelShield.git
 cd SentinelShield
+````
+
+### 2. Setup Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+**Windows:**
+
+```bash
+venv\Scripts\activate
+```
+
+**Mac/Linux:**
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+### 3. Install Dependencies
+
+```bash
+pip install flask requests pyjwt bcrypt geoip2 reportlab waitress python-dotenv scikit-learn numpy
+```
+
+---
+
+### 4. Configure Environment
+
+Rename:
+
+```
+.env.example → .env
+```
+
+Edit `.env`:
+
+```env
+# WAF ROUTING
+REVERSE_PROXY_URL=http://your-backend.com
+
+# SECURITY
+SECRET_KEY=your_secret
+JWT_SECRET=your_jwt_secret
+ADMIN_USER=admin
+ADMIN_PASS=strong_password
+
+# OPTIONAL
+TELEGRAM_BOT_TOKEN=your_token
+ABUSEIPDB_API_KEY=your_api_key
+```
+
+---
+
+### 5. Add Required Files
+
+* `static/background.jpeg` → UI wallpaper
+* `GeoLite2-City.mmdb` → place in root folder
+
+---
+
+### 6. Run Server
+
+```bash
+python app.py
+```
+
+Access dashboard:
+
+```
+http://127.0.0.1:5000/
+```
+
+---
+
+## 👨‍💻 Author
+
+**Akshat Tiwari**
+GitHub: [https://github.com/akshatcore](https://github.com/akshatcore)
+
+---
+
+## ⚠️ Disclaimer
+
+This project is for **defensive cybersecurity purposes only**.
+
+Do NOT:
+
+* attack systems without permission
+* misuse replay/forensics tools
