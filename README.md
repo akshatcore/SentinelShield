@@ -1,137 +1,84 @@
 <div align="center">
-  
-  <img src="https://img.shields.io/badge/Version-4.0-ff69b4?style=for-the-badge&logo=rocket" alt="Version 4.0" />
-  <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge&logo=opslevel" alt="Status" />
-  <img src="https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/AI-Scikit_Learn-orange?style=for-the-badge&logo=scikitlearn&logoColor=white" alt="Machine Learning" />
-  <img src="https://img.shields.io/badge/UI-Glassmorphism-8b5cf6?style=for-the-badge" alt="UI" />
 
-  <h1>🛡️ SentinelShield SOC v4.0</h1>
-  <p><b>An Elite, AI-Driven Next-Generation Web Application Firewall & Security Operations Center.</b></p>
-  
-  <img src="docs/live-monitor_v2.jpg" alt="SentinelShield Live Dashboard" width="850" style="border-radius: 12px; box-shadow: 0 0 20px rgba(59,130,246,0.4);" />
-  <br><br>
+<img src="https://img.shields.io/badge/Version-4.0-ff69b4?style=for-the-badge&logo=rocket" />
+<img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge&logo=opslevel" />
+<img src="https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python&logoColor=white" />
+<img src="https://img.shields.io/badge/AI-Scikit_Learn-orange?style=for-the-badge&logo=scikitlearn&logoColor=white" />
+<img src="https://img.shields.io/badge/UI-Glassmorphism-8b5cf6?style=for-the-badge" />
+
+# 🛡️ SentinelShield SOC v4.0
+
+**An AI-Driven Next-Generation Web Application Firewall & Security Operations Center**
+
+<img src="docs/live-monitor_v2.jpg" width="850"/>
+
 </div>
+
+---
 
 ## ⚡ What is SentinelShield?
-SentinelShield is an enterprise-grade Web Application Firewall (WAF) designed to act as an impenetrable reverse proxy gateway. It intercepts, analyzes, and neutralizes malicious web traffic before it ever touches your backend infrastructure. 
 
-With the **v4.0 Architectural Overhaul**, SentinelShield has evolved from a static, reactive filter into a proactive, predictive, and autonomous defense engine. It doesn't just block known threats—it mathematically calculates evasion attempts, reads the grammar of zero-day attacks using Machine Learning, and autonomously writes its own code to adapt to new threats in real-time.
+SentinelShield is an enterprise-grade **Web Application Firewall (WAF)** acting as a reverse proxy gateway.
 
----
+It:
+- Intercepts traffic
+- Detects threats
+- Blocks malicious requests before reaching backend
 
-## 📈 The Evolution of SentinelShield (v3.0 ➔ v4.0)
-
-Version 4.0 represents a massive leap in cybersecurity architecture, moving from rule-based filtering to AI-driven predictive modeling.
-
-| Feature Category | SentinelShield v3.0 (Reactive) | SentinelShield v4.0 (Predictive) 🚀 |
-| :--- | :--- | :--- |
-| **Detection Engine** | Static Regex Pattern Matching | **True Machine Learning (NLP)** using Scikit-Learn (TF-IDF Vectorization & Logistic Regression). |
-| **Evasion Defense** | Relied on deep URL decoding. | **Mathematical Anomaly Detection** using real-time Shannon Entropy calculations to catch Base64/Hex obfuscation. |
-| **Bot & Scanner Defense** | Basic Volumetric Rate Limiting. | **Time-Series Behavioral Fingerprinting** tracks stateful memory to permanently ban vulnerability scanners (Nikto, Burp). |
-| **Rule Generation** | Manual admin approval required. | **Zero-Touch Autonomous Self-Healing.** AI writes, approves, and hot-reloads its own Regex rules instantly. |
-| **False Positive Control** | Prone to blocking standard headers. | **Payload Isolation Pipeline** cleanly strips safe headers/URLs to scan *only* the pure attack string. |
-| **Command Center UI** | Static dark mode dashboard. | **Dynamic Glassmorphism UI** with Live AI Memory Tracking, visual telemetry, and custom SOC wallpaper engines. |
-| **Alerting System** | Hardcoded Telegram credentials. | **Interactive Telegram OAuth** via UI deep-linking, allowing admins to instantly connect/disconnect push alerts. |
+### 🚀 v4.0 Upgrade
+- Predictive AI engine
+- Zero-day detection
+- Autonomous rule generation
 
 ---
 
-## 📸 Command Center Interface
+## 📈 Evolution (v3.0 ➝ v4.0)
 
-### 1. Live Threat Monitor
-The central nerve center. Features real-time EKG traffic monitoring, Doughnut threat classification, and Global Threat Origin mapping via a dynamic glassmorphic UI.
-<div align="center">
-  <img src="docs/live-monitor_v2.jpg" alt="Live Monitor" width="800" style="border-radius: 8px; margin-top: 10px;" />
-</div>
-
-### 2. Deep Inspection Logs & Forensics
-A searchable, filterable database of every intercepted threat. Click into any log to open the Forensics Workbench, view compromised headers, isolate the exact malicious payload, or download a PDF incident report.
-<div align="center">
-  <img src="docs/inspection-logs.jpg" alt="Inspection Logs" width="800" style="border-radius: 8px; margin-top: 10px;" />
-</div>
-
-### 3. System Configuration & Active AI Memory
-Tune the WAF engine on the fly without rebooting the server. Adjust risk thresholds, upload custom SOC wallpapers, link/unlink Telegram alerts, and monitor the **Active AI Knowledge Base** as the engine writes its own defense rules.
-<div align="center">
-  <img src="docs/system-config.jpg" alt="System Config" width="800" style="border-radius: 8px; margin-top: 10px;" />
-</div>
-
-### 4. Active Detention List
-Automatically manages IP bans triggered by the Volumetric Rate Limiter and Behavioral Fingerprinting. Tracks offender IPs, detention start times, and automated release schedules.
-<div align="center">
-  <img src="docs/detention-list_v2.jpg" alt="Detention List" width="800" style="border-radius: 8px; margin-top: 10px;" />
-</div>
+| Feature | v3.0 | v4.0 🚀 |
+|--------|------|--------|
+| Detection | Regex | ML (TF-IDF + Logistic Regression) |
+| Evasion | URL decoding | Shannon Entropy detection |
+| Bot Defense | Rate limiting | Behavioral fingerprinting |
+| Rules | Manual | Auto self-healing |
+| False Positives | High | Payload isolation |
+| UI | Static | Glassmorphism + Live AI |
+| Alerts | Hardcoded | Telegram OAuth |
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## 📸 Interface
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Backend Engine** | Python / Flask | High-speed request interception & WAF logic |
-| **AI / NLP Engine** | Scikit-Learn (TF-IDF) | Logistic Regression for Zero-Day prediction |
-| **Production Server**| Waitress WSGI | Multi-threaded enterprise traffic handling |
-| **Database** | SQLite3 | Lightweight, ultra-fast threat & dynamic rule storage |
-| **Frontend UI** | HTML5 / CSS3 / JS | Zero-dependency vanilla JS with Chart.js |
-| **Threat Intel** | MaxMind / AbuseIPDB | Geographic IP mapping and global threat scoring |
+### Live Monitor
+<img src="docs/live-monitor_v2.jpg" width="800"/>
+
+### Inspection Logs
+<img src="docs/inspection-logs.jpg" width="800"/>
+
+### System Config
+<img src="docs/system-config.jpg" width="800"/>
+
+### Detention List
+<img src="docs/detention-list_v2.jpg" width="800"/>
 
 ---
 
-## 🚀 Installation & Deployment Guide
+## 🛠️ Tech Stack
 
-Follow these steps to deploy SentinelShield as a reverse proxy for your own web applications.
+| Component | Tech |
+|----------|-----|
+| Backend | Flask (Python) |
+| AI Engine | Scikit-Learn |
+| Server | Waitress |
+| DB | SQLite3 |
+| Frontend | HTML/CSS/JS |
+| Threat Intel | MaxMind, AbuseIPDB |
 
-### 1. Set Up the Environment
+---
+
+## 🚀 Installation Guide
+
+### 1. Clone Repo
+
 ```bash
-# Clone the repository
-git clone [https://github.com/akshatcore/SentinelShield.git](https://github.com/akshatcore/SentinelShield.git)
+git clone https://github.com/akshatcore/SentinelShield.git
 cd SentinelShield
-
-# Create and activate a virtual environment
-python -m venv venv
-
-# On Windows:
-venv\Scripts\activate
-# On Mac/Linux:
-source venv/bin/activate
-2. Install Dependencies
-Bash
-pip install flask requests pyjwt bcrypt geoip2 reportlab waitress python-dotenv scikit-learn numpy
-3. Configure the Security Environment
-For security reasons, hardcoded secrets are not included in this repository.
-
-Copy the template file: Rename .env.example to .env.
-
-Open .env and configure your target backend and secure passwords:
-
-Code snippet
-# --- WAF ROUTING ---
-REVERSE_PROXY_URL=[http://your-vulnerable-backend.com](http://your-vulnerable-backend.com)
-
-# --- CORE SECURITY ---
-SECRET_KEY=generate_a_random_string_here
-JWT_SECRET=generate_another_random_string_here
-ADMIN_USER=admin
-ADMIN_PASS=your_secure_password
-
-# --- EXTERNAL INTEGRATIONS (Optional) ---
-TELEGRAM_BOT_TOKEN=your_telegram_token_here
-ABUSEIPDB_API_KEY=your_abuseipdb_api_key_here
-4. Provide Local Assets
-Background Image: Add your favorite high-res wallpaper to static/ and name it exactly background.jpeg.
-
-GeoIP Database: Download the free GeoLite2-City.mmdb database from MaxMind and place it in the root folder.
-
-5. Initialize the Gateway
-Start the production Waitress server. The threat database and AI learning models will safely auto-generate on the first boot.
-
-Bash
-python app.py
-Access the secure SOC Dashboard at: http://127.0.0.1:5000/
-
-👨‍💻 Author
-Akshat Tiwari (@akshatcore)
-
-⚠️ Disclaimer
-
-SentinelShield is built strictly for defensive cybersecurity purposes. Do not use the integrated replay tools or forensics suite to launch attacks against networks or applications you do not own or have explicit permission to test.
