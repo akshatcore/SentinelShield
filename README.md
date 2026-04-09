@@ -160,6 +160,18 @@ http://127.0.0.1:5000/
 
 ---
 
+---
+
+## 🌐 Live Deployment
+
+Experience SentinelShield in action:
+
+🔗 **Live Demo:** https://sentinelshield-1.onrender.com/
+
+> ⚡ Fully functional AI-powered WAF dashboard with real-time monitoring, threat detection, and SOC interface.
+
+---
+
 ## 👨‍💻 Author
 
 **Akshat Tiwari**
