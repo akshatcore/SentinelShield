@@ -1,7 +1,25 @@
+# --- CORE WEB & PROXY ---
 Flask==3.0.0
 Werkzeug==3.0.1
-gunicorn==21.2.0
-geoip2==4.8.0
+requests==2.31.0
+waitress==3.0.0        
+
+# --- AUTH & SECURITY ---
 PyJWT==2.8.0
 bcrypt==4.1.2
-requests==2.31.0
+
+# --- SYSTEM & UTILITIES ---
+python-dotenv==0.21.0
+psutil==5.9.0
+geoip2==4.8.0
+redis==4.5.0
+celery==5.2.7
+
+# --- NEW: PDF GENERATION ---
+reportlab==4.1.0       
+
+# --- NEW: ML BRAIN DEPENDENCIES ---
+# (Required for your heuristic NLP engine)
+scikit-learn==1.3.2
+numpy==1.26.4
+joblib==1.3.2
