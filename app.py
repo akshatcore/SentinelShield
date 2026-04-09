@@ -84,8 +84,15 @@ WHITELISTED_IPS = ['127.0.0.1', '192.168.1.8']
 # --- WAF MIDDLEWARE ---
 @app.before_request
 def waf_middleware():
-    # 1. God Mode Check: If the user is on the whitelist, bypass WAF immediately!
-    if request.remote_addr in WHITELISTED_IPS:
+    # --- CRITICAL CLOUD FIX ---
+    # Extract the true IP from Render's Proxy Header
+    if request.headers.get('X-Forwarded-For'):
+        client_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    else:
+        client_ip = request.remote_addr
+
+    # 1. God Mode Check: Check the TRUE IP against the whitelist
+    if client_ip in WHITELISTED_IPS:
         return
 
     # 2. Ignore static files and dashboard UI paths
@@ -96,20 +103,19 @@ def waf_middleware():
         request.path == '/favicon.ico'):
         return
 
-    # 3. WAF Engine Scanning (For everyone else)
-    ip = request.remote_addr
+    # 3. WAF Engine Scanning (Pass the TRUE IP to the WAF)
     method = request.method
     url = request.url
     headers = dict(request.headers)
     body = request.get_data(as_text=True)
 
-    decision = waf.inspect_request(ip, method, url, headers, body)
+    decision = waf.inspect_request(client_ip, method, url, headers, body)
 
     if decision['action'] == 'BLOCKED':
         return jsonify({
             "error": "Request Blocked by SentinelShield",
             "reason": decision['reason'],
-            "ip": ip
+            "ip": client_ip
         }), 403
 
 # --- AUTH DECORATORS ---
