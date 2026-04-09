@@ -77,9 +77,18 @@ def telegram_poller():
 
 threading.Thread(target=telegram_poller, daemon=True).start()
 
+# --- NEW: IP WHITELIST CONFIGURATION ---
+# IPs in this list will completely bypass WAF scanning
+WHITELISTED_IPS = ['127.0.0.1', '192.168.1.8']
+
 # --- WAF MIDDLEWARE ---
 @app.before_request
 def waf_middleware():
+    # 1. God Mode Check: If the user is on the whitelist, bypass WAF immediately!
+    if request.remote_addr in WHITELISTED_IPS:
+        return
+
+    # 2. Ignore static files and dashboard UI paths
     if (request.path.startswith('/static') or 
         request.path.startswith('/api') or 
         request.path == '/' or 
@@ -87,6 +96,7 @@ def waf_middleware():
         request.path == '/favicon.ico'):
         return
 
+    # 3. WAF Engine Scanning (For everyone else)
     ip = request.remote_addr
     method = request.method
     url = request.url

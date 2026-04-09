@@ -7,6 +7,7 @@ from behavior_engine import check_rate_limit, learn_from_payload, detect_obfusca
 from config import Config
 from alerts import send_telegram_alert
 from ml_engine import ml_brain
+import urllib.parse
 
 def check_ip_reputation(ip):
     """
@@ -42,6 +43,7 @@ def check_ip_reputation(ip):
 
 class WAF:
     def inspect_request(self, ip, method, url, headers, body):
+        
         print(f"\n--- 🔍 NEW REQUEST ARRIVED: {url} ---", flush=True)
 
         if is_ip_banned(ip):
@@ -72,8 +74,10 @@ class WAF:
             return {"action": "BLOCKED", "reason": reason}
 
         print("✅ Passed early checks. Moving to Deep Payload Inspection...", flush=True)
-
+        
+    
         # --- 3. Signature Inspection & URL Decoding ---
+        
         decoded_url = urllib.parse.unquote(url)
         decoded_body = urllib.parse.unquote(body) if body else ""
         
