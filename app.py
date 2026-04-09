@@ -84,26 +84,22 @@ WHITELISTED_IPS = ['127.0.0.1', '192.168.1.8']
 # --- WAF MIDDLEWARE ---
 @app.before_request
 def waf_middleware():
-    # --- CRITICAL CLOUD FIX ---
-    # Extract the true IP from Render's Proxy Header
+    # 1. Cloud IP Extraction
     if request.headers.get('X-Forwarded-For'):
         client_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
     else:
         client_ip = request.remote_addr
 
-    # 1. God Mode Check: Check the TRUE IP against the whitelist
+    # 2. God Mode Check
     if client_ip in WHITELISTED_IPS:
         return
 
-    # 2. Ignore static files and dashboard UI paths
-    if (request.path.startswith('/static') or 
-        request.path.startswith('/api') or 
-        request.path == '/' or 
-        request.path.startswith('/admin-login') or
-        request.path == '/favicon.ico'):
+    # 3. THE FIX: Only ignore harmless static files (CSS/JS/Images)
+    # The WAF will now aggressively scan the Dashboard, APIs, and the Root path!
+    if request.path.startswith('/static') or request.path == '/favicon.ico':
         return
 
-    # 3. WAF Engine Scanning (Pass the TRUE IP to the WAF)
+    # 4. WAF Engine Scanning
     method = request.method
     url = request.url
     headers = dict(request.headers)
