@@ -79,7 +79,7 @@ threading.Thread(target=telegram_poller, daemon=True).start()
 
 # --- NEW: IP WHITELIST CONFIGURATION ---
 # IPs in this list will completely bypass WAF scanning
-WHITELISTED_IPS = ['127.0.0.1', '192.168.1.8']
+WHITELISTED_IPS = ['127.0.0.1']
 
 # --- WAF MIDDLEWARE ---
 @app.before_request
