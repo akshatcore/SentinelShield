@@ -31,7 +31,7 @@ class Config:
     
     # Default Admin Credentials
     DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER') or 'admin'
-    DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS') or 'sentinel123'
+    DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS') or 'admin123'  # WARNING: Change this in production!
 
     # --- TELEGRAM ALERTS ---
     TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
